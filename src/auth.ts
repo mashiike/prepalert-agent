@@ -74,6 +74,8 @@ function verifyBasicAuth(request: Request, config: AuthBasic): AuthResult {
   return { ok: true };
 }
 
+const jwksCache = new Map<string, ReturnType<typeof jose.createRemoteJWKSet>>();
+
 async function verifyOidcAuth(
   request: Request,
   config: AuthOidc,
@@ -86,10 +88,12 @@ async function verifyOidcAuth(
   const token = authHeader.slice(7);
 
   try {
-    const jwksUrl = config.jwksUri
-      ? new URL(config.jwksUri)
-      : new URL(`${config.issuer}/.well-known/jwks.json`);
-    const JWKS = jose.createRemoteJWKSet(jwksUrl);
+    const jwksUrlStr = config.jwksUri ?? `${config.issuer}/.well-known/jwks.json`;
+    let JWKS = jwksCache.get(jwksUrlStr);
+    if (!JWKS) {
+      JWKS = jose.createRemoteJWKSet(new URL(jwksUrlStr));
+      jwksCache.set(jwksUrlStr, JWKS);
+    }
     await jose.jwtVerify(token, JWKS, {
       issuer: config.issuer,
       audience: config.audience,

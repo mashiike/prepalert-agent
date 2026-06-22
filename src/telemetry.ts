@@ -54,11 +54,15 @@ export function initTelemetry(version: string): void {
 
 export async function shutdownTelemetry(): Promise<void> {
   if (!enabled) return;
+  enabled = false;
   await Promise.allSettled([
     tracerProvider?.shutdown(),
     meterProvider?.shutdown(),
     loggerProvider?.shutdown(),
   ]);
+  tracerProvider = null;
+  meterProvider = null;
+  loggerProvider = null;
 }
 
 export function getTracer(): Tracer {

@@ -77,9 +77,10 @@ export async function sendToSqs(params: SendToSqsParams): Promise<void> {
   const event = requestToAPIGatewayV2Event(request, body, baseUrl, config.targetPath);
   const messageBody = JSON.stringify(event);
 
-  if (messageBody.length > SQS_MAX_MESSAGE_SIZE) {
+  const messageBytes = new TextEncoder().encode(messageBody).byteLength;
+  if (messageBytes > SQS_MAX_MESSAGE_SIZE) {
     throw new Error(
-      `SQS message size ${messageBody.length} bytes exceeds the ${SQS_MAX_MESSAGE_SIZE} byte limit`,
+      `SQS message size ${messageBytes} bytes exceeds the ${SQS_MAX_MESSAGE_SIZE} byte limit`,
     );
   }
 

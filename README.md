@@ -25,24 +25,33 @@ Usage: prepalert-agent [options] [command]
 Alert response agent powered by Claude Agent SDK
 
 Options:
-  -v, --version        output the version number
-  --project-dir <dir>  path to the alert response project directory (default: ".")
-  -h, --help           display help for command
+  -v, --version            output the version number
+  --project-dir <dir>      path to the alert response project directory (default: ".")
+  --log-level <level>      log level: debug, info, warn, error (default: "info")
+  -h, --help               display help for command
 
 Commands:
-  init                 Initialize a new alert response project
-  serve [options]      Start a webhook server
-  run <alert-file>     Execute a runbook for a specific alert
-  help [command]       display help for command
+  run [options]            Execute a runbook (interactive or headless with -p)
+  serve [options]          Start a webhook server
+  init                     Initialize a new alert response project
+  skills                   Manage skills (list/install/update/uninstall/status)
+  docs                     Show documentation
+  help [command]           display help for command
 ```
 
 ### `run`
 
-Execute runbooks for a specific alert. The agent analyzes the alert payload, selects relevant runbooks, and investigates using MCP tools.
+Execute runbooks for alert investigation. Runs in interactive mode by default, or headless mode with `-p`.
 
 ```bash
-prepalert-agent run alerts/web-api-5xx.json
-prepalert-agent --project-dir ./my-project run alerts/alert.json
+# Interactive mode
+prepalert-agent run
+
+# Headless mode with prompt
+prepalert-agent run -p "Investigate the 5xx error rate spike"
+
+# Pipe alert payload
+cat alerts/web-api-5xx.json | prepalert-agent run -p -
 ```
 
 ### `serve`
