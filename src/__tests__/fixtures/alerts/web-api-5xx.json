@@ -1,0 +1,16 @@
+{
+  "orgName": "example-org",
+  "event": "alert",
+  "alert": {
+    "id": "alert-12345",
+    "status": "critical",
+    "monitorName": "Web API 5xx Error Rate",
+    "metricValue": 8.5,
+    "threshold": 5.0,
+    "openedAt": "2025-06-12T10:00:00Z"
+  },
+  "service": {
+    "name": "web-api",
+    "roles": ["api-server"]
+  }
+}

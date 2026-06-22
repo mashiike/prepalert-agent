@@ -1,0 +1,102 @@
+import { timingSafeEqual } from "node:crypto";
+import * as jose from "jose";
+
+export interface AuthNone {
+  authType: "none";
+}
+
+export interface AuthBasic {
+  authType: "basic";
+  username: string;
+  password: string;
+}
+
+export interface AuthOidc {
+  authType: "oidc";
+  issuer: string;
+  audience: string;
+  jwksUri?: string | undefined;
+}
+
+export type AuthConfig = AuthNone | AuthBasic | AuthOidc;
+
+export type AuthResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; headers?: Record<string, string> | undefined };
+
+export async function verifyAuth(
+  request: Request,
+  config: AuthConfig,
+): Promise<AuthResult> {
+  switch (config.authType) {
+    case "none":
+      return { ok: true };
+    case "basic":
+      return verifyBasicAuth(request, config);
+    case "oidc":
+      return verifyOidcAuth(request, config);
+  }
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
+function verifyBasicAuth(request: Request, config: AuthBasic): AuthResult {
+  const challenge = { "WWW-Authenticate": 'Basic realm="prepalert"' };
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Basic ")) {
+    return { ok: false, status: 401, message: "Missing Basic authentication", headers: challenge };
+  }
+  let decoded: string;
+  try {
+    decoded = atob(authHeader.slice(6));
+  } catch {
+    return { ok: false, status: 401, message: "Invalid Basic authentication", headers: challenge };
+  }
+  const sep = decoded.indexOf(":");
+  if (sep === -1) {
+    return { ok: false, status: 401, message: "Invalid Basic authentication", headers: challenge };
+  }
+  const username = decoded.slice(0, sep);
+  const password = decoded.slice(sep + 1);
+  const usernameMatch = constantTimeEqual(username, config.username);
+  const passwordMatch = constantTimeEqual(password, config.password);
+  if (!usernameMatch || !passwordMatch) {
+    return { ok: false, status: 401, message: "Invalid credentials", headers: challenge };
+  }
+  return { ok: true };
+}
+
+async function verifyOidcAuth(
+  request: Request,
+  config: AuthOidc,
+): Promise<AuthResult> {
+  const challenge = { "WWW-Authenticate": `Bearer realm="prepalert"` };
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { ok: false, status: 401, message: "Missing Bearer token", headers: challenge };
+  }
+  const token = authHeader.slice(7);
+
+  try {
+    const jwksUrl = config.jwksUri
+      ? new URL(config.jwksUri)
+      : new URL(`${config.issuer}/.well-known/jwks.json`);
+    const JWKS = jose.createRemoteJWKSet(jwksUrl);
+    await jose.jwtVerify(token, JWKS, {
+      issuer: config.issuer,
+      audience: config.audience,
+    });
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "JWT verification failed";
+    return { ok: false, status: 401, message, headers: challenge };
+  }
+}

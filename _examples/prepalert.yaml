@@ -1,0 +1,46 @@
+# Project name (used for logging and identification)
+name: acme-api
+
+# Model for the agent to use
+model: haiku
+
+# Maximum number of turns per agent execution
+maxTurns: 10
+
+# Cost limit per execution in USD
+costLimit: 1.0
+
+instructions: |
+  This project monitors a REST API ("acme-api") running on Amazon ECS.
+
+  ## Architecture
+  - Runtime: Go (net/http)
+  - Database: Amazon RDS (PostgreSQL)
+  - Cache: Amazon ElastiCache (Redis)
+  - Logging: CloudWatch Logs (log group: /ecs/acme-api, structured JSON)
+  - Monitoring: Mackerel (service: acme-api, roles: api-server, worker)
+
+  ## Investigation guidelines
+  - Summarize findings in English
+  - When investigating alerts, first check Mackerel for alert details, then look at CloudWatch Logs
+  - For database-related issues, check RDS metrics via CloudWatch
+  - For cache-related issues, check ElastiCache metrics via CloudWatch
+
+serve:
+  port: 8080
+  syncMode: false
+  auth:
+    issuer: https://accounts.google.com
+    clientId: ${GOOGLE_CLIENT_ID}
+    clientSecret: ${GOOGLE_CLIENT_SECRET}
+    allowedDomains:
+      - ${ALLOWED_DOMAIN:-example.com}
+  webhooks:
+    - path: /webhook/mackerel
+      authType: basic
+      headerPrompt: "The following Mackerel alert has been received:"
+      username: ${WEBHOOK_USER:-webhook}
+      password: ${WEBHOOK_PASS:-webhook}
+    - path: /webhook/local
+      authType: none
+      headerPrompt: "The following test alert has been received:"

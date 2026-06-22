@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "mackerel": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mackerel/mcp-server"],
+      "env": {
+        "MACKEREL_APIKEY": "${MACKEREL_APIKEY}"
+      }
+    },
+    "aws": {
+      "command": "uvx",
+      "args": [
+        "mcp-proxy-for-aws==1.6.0",
+        "https://aws-mcp.us-east-1.api.aws/mcp",
+        "--read-only"
+      ]
+    }
+  }
+}
