@@ -371,7 +371,7 @@ List of webhook endpoints accepted by the `serve` command.
 
 - **Type:** `"none"` | `"basic"` | `"oidc"`
 - **Required:** Yes
-- **Description:** Authentication method.
+- **Description:** Authentication method. On authentication failure, a `401` response is returned with a `WWW-Authenticate` header (`basic` → `Basic realm="prepalert"`, `oidc` → `Bearer realm="prepalert"`).
 
 #### `serve.webhooks[].headerPrompt`
 

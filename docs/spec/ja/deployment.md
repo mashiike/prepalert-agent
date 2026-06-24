@@ -183,6 +183,7 @@ serve:
 - SQS の `VisibilityTimeout` を `timeout` 以上に設定すること
 - Lambda 環境では非同期モードが強制的に同期モードに切り替わる（Lambda は fire-and-forget を許容しないため）
 - API Gateway v2 (HTTP API) を使用すること（SQS dispatch は v2 イベント形式で送信する）
+- Lambda のイベントソースマッピングで **`ReportBatchItemFailures`** を有効にすること。prepalert-agent は SQS バッチ処理で失敗したレコードのみ `batchItemFailures` として返す（partial batch response）。この設定がないと、1件の失敗でバッチ全体が再配信され二重実行になる
 
 ### Bedrock AgentCore Runtime
 

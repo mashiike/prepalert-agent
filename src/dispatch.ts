@@ -73,7 +73,7 @@ async function resolveServiceAccountEmail(
 
 /**
  * Resolve the dispatch deadline in seconds.
- * Priority: dispatch.dispatchDeadline > project timeout > warn + undefined
+ * Priority: dispatch.dispatchDeadline > project timeout > undefined (warn emitted at startup validation)
  */
 export function resolveDispatchDeadlineSeconds(
   dispatchDeadline: string | undefined,

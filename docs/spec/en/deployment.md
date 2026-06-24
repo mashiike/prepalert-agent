@@ -183,6 +183,7 @@ serve:
 - Set SQS `VisibilityTimeout` to be greater than or equal to `timeout`
 - In Lambda environments, async mode is automatically forced to sync mode (Lambda does not support fire-and-forget execution)
 - Use API Gateway v2 (HTTP API) — SQS dispatch sends events in v2 format
+- Enable **`ReportBatchItemFailures`** in the Lambda event source mapping. prepalert-agent returns only failed records as `batchItemFailures` (partial batch response). Without this setting, a single failure causes the entire batch to be redelivered, resulting in duplicate execution
 
 ### Bedrock AgentCore Runtime
 

@@ -5,6 +5,17 @@
 A feature to export session investigation results as a ZIP and hand them off to external tools such as Claude Code.
 Export URLs are protected by JWT and issued as temporary URLs with an expiration time.
 
+## Session Permalink
+
+Each session is accessible via a permalink URL at `/sessions/{sessionId}`. The SPA uses client-side routing to display session details.
+
+- The browser URL bar reflects the session ID, enabling bookmarking and sharing
+- The "Copy URL" button in the SPA copies the permalink to the clipboard
+- In `serve` mode, the full URL (using `serve.baseUrl` or auto-detected) is included in the system prompt, allowing the Agent to post links to Slack etc.
+- In `run` mode, only the session ID is included in the system prompt
+
+When `serve.auth` is configured, accessing a permalink requires OIDC authentication.
+
 ## Endpoints
 
 ### Issuing an Export URL

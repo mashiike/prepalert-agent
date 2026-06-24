@@ -371,7 +371,7 @@ OIDC 認証設定。設定すると SPA（`/`, `/sessions/*`）と API（`/api/*
 
 - **型:** `"none"` | `"basic"` | `"oidc"`
 - **必須:** Yes
-- **説明:** 認証方式。
+- **説明:** 認証方式。認証失敗時は `401` レスポンスと共に `WWW-Authenticate` ヘッダーを返す（`basic` → `Basic realm="prepalert"`、`oidc` → `Bearer realm="prepalert"`）。
 
 #### `serve.webhooks[].headerPrompt`
 
