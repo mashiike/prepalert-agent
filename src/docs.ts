@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join, resolve, dirname, basename } from "node:path";
+import { join, resolve, dirname, basename, sep } from "node:path";
 
 export interface DocsSection {
   level: number;
@@ -112,7 +112,14 @@ export async function listArticles(): Promise<DocsArticle[]> {
 }
 
 export async function loadArticle(name: string, lang: string = "ja"): Promise<string> {
+  if (/[/\\]|\.\./.test(name) || /[/\\]|\.\./.test(lang)) {
+    throw new Error(`invalid article name or lang: ${name}, ${lang}`);
+  }
   const docsRoot = getDocsRoot();
   const filePath = join(docsRoot, lang, `${name}.md`);
+  const resolved = resolve(filePath);
+  if (!resolved.startsWith(resolve(docsRoot) + sep)) {
+    throw new Error(`invalid article path: ${name}`);
+  }
   return readFile(filePath, "utf-8");
 }

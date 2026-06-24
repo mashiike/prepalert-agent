@@ -8,7 +8,7 @@ Set the environment variable `OTEL_EXPORTER_OTLP_ENDPOINT` to enable telemetry. 
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-prepalert-agent run -p "アラートを調査して"
+prepalert-agent run -p "Investigate the alert"
 ```
 
 Setting `OTEL_SDK_DISABLED=true` explicitly disables telemetry even when the endpoint is configured.

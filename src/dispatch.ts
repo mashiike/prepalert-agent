@@ -81,10 +81,10 @@ export function resolveDispatchDeadlineSeconds(
   logger: Logger,
 ): number | undefined {
   if (dispatchDeadline) {
-    return parseDuration(dispatchDeadline);
+    return Math.ceil(parseDuration(dispatchDeadline));
   }
   if (projectTimeout) {
-    return parseDuration(projectTimeout);
+    return Math.ceil(parseDuration(projectTimeout));
   }
   logger.warn(
     "dispatch.dispatchDeadline and project timeout are both unset; Cloud Tasks will use its default deadline which may be too short for agent execution",
