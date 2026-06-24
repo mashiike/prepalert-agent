@@ -7,7 +7,7 @@ import { type TranscriptWriter, LocalTranscriptWriter, sdkMessageToEvent } from 
 import { isOTelEnabled, SessionTelemetry, type TokenUsage } from "../telemetry.js";
 import { SessionWriter } from "../session-writer.js";
 import { RUNBOOK_AGENT_PREFIX } from "./agents.js";
-import { buildSystemPrompt, buildQueryOptions, type SessionContext } from "./prompt.js";
+import { buildQueryOptions, type SessionContext } from "./prompt.js";
 
 export { RUNBOOK_AGENT_PREFIX } from "./agents.js";
 export { buildSystemPrompt } from "./prompt.js";
@@ -315,7 +315,9 @@ async function testMcpConnections(q: Query, serverNames: string[], logger: Logge
     logger.debug("MCP server connecting", { name: s.name });
     try {
       await q.reconnectMcpServer(s.name);
-    } catch {}
+    } catch (e) {
+      logger.debug("MCP server reconnect failed", { name: s.name, error: e instanceof Error ? e.message : String(e) });
+    }
   }
   const already = targets.filter((s) => s.status === "connected");
   for (const s of already) {

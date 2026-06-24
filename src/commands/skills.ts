@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile, rm, access, stat } from "node:fs/promises";
-import { join, resolve, dirname, relative } from "node:path";
+import { mkdir, readdir, readFile, writeFile, rm, access } from "node:fs/promises";
+import { join, resolve, dirname } from "node:path";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { Command } from "commander";

@@ -163,7 +163,7 @@ async function findConfigPath(projectDir: string): Promise<string | null> {
       if (e instanceof Error && "code" in e && (e as NodeJS.ErrnoException).code === "ENOENT") {
         continue;
       }
-      throw new Error(`Cannot read ${path}: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Cannot read ${path}: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
     }
   }
   return null;
@@ -199,7 +199,7 @@ async function loadProjectConfig(projectDir: string): Promise<ProjectConfig> {
       throw e;
     }
     const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(`Failed to load ${configPath}: ${msg}`);
+    throw new Error(`Failed to load ${configPath}: ${msg}`, { cause: e });
   }
 }
 
@@ -212,7 +212,7 @@ async function loadMcpConfig(projectDir: string, mcpConfigPath: string): Promise
     if (e instanceof Error && "code" in e && (e as NodeJS.ErrnoException).code === "ENOENT") {
       return { mcpServers: {} };
     }
-    throw new Error(`Cannot read ${configPath}: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`Cannot read ${configPath}: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -222,7 +222,7 @@ async function loadMcpConfig(projectDir: string, mcpConfigPath: string): Promise
     return parsed as McpConfig;
   } catch (e) {
     if (e instanceof SyntaxError) {
-      throw new Error(`Invalid JSON in ${configPath}: ${e.message}`);
+      throw new Error(`Invalid JSON in ${configPath}: ${e.message}`, { cause: e });
     }
     throw e;
   }
@@ -258,7 +258,7 @@ async function loadRunbooks(projectDir: string, runbooksDir: string): Promise<Ru
       content = await readFile(fullPath, "utf-8");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to read runbook ${fullPath}: ${msg}`);
+      throw new Error(`Failed to read runbook ${fullPath}: ${msg}`, { cause: e });
     }
     const { meta, body } = parseFrontmatter(content);
     const id = mdFile.replace(/\.md$/, "");

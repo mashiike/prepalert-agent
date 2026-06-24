@@ -1,4 +1,4 @@
-import { readFile, readdir, stat, writeFile, mkdir, appendFile } from "node:fs/promises";
+import { readFile, readdir, stat, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   S3Client,
