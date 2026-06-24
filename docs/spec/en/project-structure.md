@@ -157,6 +157,6 @@ Starts a webhook server.
 
 Project initialization (scaffolding). Generates `prepalert.yaml`, `.mcp.json`, `runbooks/example/`, and `.gitignore`. No AI required. See [init.md](./init.md) for details.
 
-### `install-skills`
+### `skills`
 
-Installs skill files provided by prepalert-agent into Claude Code or similar tools. The installation target can be `project` (`.claude/skills/`), `user` (`~/.claude/skills/`), or a custom path. No AI required. See [install-skills.md](./install-skills.md) for details.
+Manages skill files provided by prepalert-agent for Claude Code or similar tools. Subcommands: `list`, `install`, `update`, `uninstall`, `status`. Installation scope can be `project` (`.claude/skills/`) or `user` (`~/.claude/skills/`). No AI required. See [install-skills.md](./install-skills.md) for details.

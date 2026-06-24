@@ -157,6 +157,6 @@ Webhook サーバーを起動する。
 
 プロジェクトの初期化（scaffolding）。`prepalert.yaml`、`.mcp.json`、`runbooks/example/`、`.gitignore` を生成する。AI 不要。詳細は [init.md](./init.md) を参照。
 
-### `install-skills`
+### `skills`
 
-prepalert-agent が提供するスキルファイルを Claude Code 等にインストールする。インストール先は `project`（`.claude/skills/`）、`user`（`~/.claude/skills/`）、または任意のパスを指定可能。AI 不要。詳細は [install-skills.md](./install-skills.md) を参照。
+prepalert-agent が提供するスキルファイルを Claude Code 等にインストール・管理する。サブコマンド: `list`, `install`, `update`, `uninstall`, `status`。インストール先は `project`（`.claude/skills/`）または `user`（`~/.claude/skills/`）。AI 不要。詳細は [install-skills.md](./install-skills.md) を参照。

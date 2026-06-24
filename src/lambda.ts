@@ -44,6 +44,7 @@ export interface SQSEvent {
 export interface APIGatewayV2Response {
   statusCode: number;
   headers?: Record<string, string> | undefined;
+  cookies?: string[] | undefined;
   body?: string | undefined;
   isBase64Encoded?: boolean | undefined;
 }
@@ -96,16 +97,23 @@ export function apiGatewayV2EventToRequest(event: APIGatewayV2Event): Request {
 
 export async function responseToAPIGatewayV2(response: Response): Promise<APIGatewayV2Response> {
   const headers: Record<string, string> = {};
+  const cookies: string[] = [];
   response.headers.forEach((value, key) => {
-    headers[key] = value;
+    if (key.toLowerCase() === "set-cookie") {
+      cookies.push(value);
+    } else {
+      headers[key] = value;
+    }
   });
   const body = await response.text();
-  return {
+  const result: APIGatewayV2Response = {
     statusCode: response.status,
     headers,
     body,
     isBase64Encoded: false,
   };
+  if (cookies.length > 0) result.cookies = cookies;
+  return result;
 }
 
 /**
