@@ -11,4 +11,5 @@ my-local/
 /prepalert-agent
 logs/
 sessions/
+THIRD_PARTY_LICENSES.md
 

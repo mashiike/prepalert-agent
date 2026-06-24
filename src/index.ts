@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { program } from "commander";
 import pkg from "../package.json" with { type: "json" };
 const { version } = pkg;
+const bunVersion = typeof Bun !== "undefined" ? Bun.version : "unknown";
 import { loadProject, type PermissionMode } from "./project.js";
 import { executePrompt, executeInteractive } from "./commands/execute.js";
 import { serveCommand } from "./commands/serve.js";
@@ -42,16 +43,16 @@ async function loadProjectOrExit(projectDir: string) {
 
 program
   .name("prepalert-agent")
-  .description("Alert response agent powered by Claude Agent SDK")
-  .version(version, "-v, --version")
-  .option("--project-dir <dir>", "path to the alert response project directory", process.env["PREPALERT_PROJECT_DIR"] ?? ".")
-  .option("--log-level <level>", "log level (debug, info, warn, error)");
+  .description("Alert response agent powered by Claude Agent SDK\nhttps://github.com/mashiike/prepalert-agent")
+  .version(`${version} (bun ${bunVersion})`, "-v, --version")
+  .option("--project-dir <dir>", "path to the alert response project directory (env: PREPALERT_PROJECT_DIR)", process.env["PREPALERT_PROJECT_DIR"] ?? ".")
+  .option("--log-level <level>", "log level: debug, info, warn, error (env: PREPALERT_LOG_LEVEL)", process.env["PREPALERT_LOG_LEVEL"]);
 
 program
   .command("run", { isDefault: true })
   .description("Execute runbooks interactively or with a prompt")
   .option("-p <prompt>", "run non-interactively with the given prompt, use '-' to read from stdin")
-  .option("-m, --interactive-permission-mode <mode>", "permission mode for interactive sessions", process.env["PREPALERT_PERMISSION_MODE"] ?? "default")
+  .option("-m, --interactive-permission-mode <mode>", "permission mode for interactive sessions (env: PREPALERT_PERMISSION_MODE)", process.env["PREPALERT_PERMISSION_MODE"] ?? "default")
   .option("--interactive-log-level <level>", "log level for interactive sessions (debug, info, warn, error)")
   .action(async (opts, cmd) => {
     const globals = cmd.optsWithGlobals();
