@@ -46,7 +46,7 @@ program
   .description("Alert response agent powered by Claude Agent SDK\nhttps://github.com/mashiike/prepalert-agent")
   .version(`${version} (bun ${bunVersion})`, "-v, --version")
   .option("--project-dir <dir>", "path to the alert response project directory (env: PREPALERT_PROJECT_DIR)", process.env["PREPALERT_PROJECT_DIR"] ?? ".")
-  .option("--log-level <level>", "log level: debug, info, warn, error (env: PREPALERT_LOG_LEVEL)", process.env["PREPALERT_LOG_LEVEL"]);
+  .option("--log-level <level>", "log level: debug, info, warn, error (env: PREPALERT_LOG_LEVEL)");
 
 program
   .command("run", { isDefault: true })
