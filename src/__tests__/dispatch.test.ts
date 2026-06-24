@@ -1,4 +1,19 @@
 import { describe, test, expect, mock, afterEach } from "bun:test";
+
+let _capturedCloudTaskArgs: unknown = null;
+
+mock.module("@google-cloud/tasks", () => ({
+  CloudTasksClient: class {
+    async createTask(args: unknown) {
+      _capturedCloudTaskArgs = args;
+      return [{ name: "projects/test/locations/us-central1/queues/q/tasks/t-123" }];
+    }
+  },
+  protos: {
+    google: { cloud: { tasks: { v2: {} } } },
+  },
+}));
+
 import { isDispatchedRequest, resolveBaseUrl, resolveDispatchDeadlineSeconds, createCloudTask, resetClient, DISPATCHED_HEADER } from "../dispatch.js";
 import type { CloudTasksDispatchConfig } from "../project.js";
 
@@ -115,22 +130,8 @@ describe("resolveDispatchDeadlineSeconds", () => {
 });
 
 describe("createCloudTask", () => {
-  let capturedArgs: unknown = null;
-
-  mock.module("@google-cloud/tasks", () => ({
-    CloudTasksClient: class {
-      async createTask(args: unknown) {
-        capturedArgs = args;
-        return [{ name: "projects/test/locations/us-central1/queues/q/tasks/t-123" }];
-      }
-    },
-    protos: {
-      google: { cloud: { tasks: { v2: {} } } },
-    },
-  }));
-
   afterEach(() => {
-    capturedArgs = null;
+    _capturedCloudTaskArgs = null;
     resetClient();
   });
 
@@ -146,8 +147,8 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    expect(capturedArgs).not.toBeNull();
-    const task = (capturedArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
+    expect(_capturedCloudTaskArgs).not.toBeNull();
+    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
     expect(task.httpRequest.headers[DISPATCHED_HEADER]).toBe("true");
   });
 
@@ -163,7 +164,7 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    const task = (capturedArgs as { task: { httpRequest: { url: string } } }).task;
+    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { url: string } } }).task;
     expect(task.httpRequest.url).toBe("https://my-service.run.app/webhook/mackerel");
   });
 
@@ -182,7 +183,7 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    const task = (capturedArgs as { task: { httpRequest: { url: string } } }).task;
+    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { url: string } } }).task;
     expect(task.httpRequest.url).toBe("https://my-service.run.app/internal/process");
   });
 
@@ -198,7 +199,7 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    const task = (capturedArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
+    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
     expect(task.httpRequest.headers["Content-Type"]).toBe("application/json");
   });
 
@@ -214,7 +215,7 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    const task = (capturedArgs as { task: { dispatchDeadline: { seconds: number } } }).task;
+    const task = (_capturedCloudTaskArgs as { task: { dispatchDeadline: { seconds: number } } }).task;
     expect(task.dispatchDeadline).toEqual({ seconds: 1800 });
   });
 
@@ -230,7 +231,7 @@ describe("createCloudTask", () => {
       logger: noopLogger as never,
     });
 
-    const task = (capturedArgs as { task: { dispatchDeadline?: unknown } }).task;
+    const task = (_capturedCloudTaskArgs as { task: { dispatchDeadline?: unknown } }).task;
     expect(task.dispatchDeadline).toBeUndefined();
   });
 });

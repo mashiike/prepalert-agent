@@ -2,6 +2,39 @@ import { describe, test, expect, mock, afterEach } from "bun:test";
 import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
+let _cloudTaskCalls: unknown[] = [];
+let _sqsSendCalls: unknown[] = [];
+
+mock.module("@google-cloud/tasks", () => ({
+  CloudTasksClient: class {
+    async createTask(args: unknown) {
+      _cloudTaskCalls.push(args);
+      return [{ name: "projects/test/locations/l/queues/q/tasks/t-1" }];
+    }
+  },
+  protos: { google: { cloud: { tasks: { v2: {} } } } },
+}));
+
+mock.module("@aws-sdk/client-sqs", () => ({
+  SQSClient: class {
+    async send(command: unknown) {
+      _sqsSendCalls.push(command);
+      return { MessageId: "msg-1" };
+    }
+  },
+  SendMessageCommand: class {
+    input: unknown;
+    constructor(input: unknown) { this.input = input; }
+  },
+}));
+
+mock.module("@anthropic-ai/claude-agent-sdk", () => ({
+  query: () => { throw new Error("query should not be called in dispatch tests"); },
+  tool: () => ({}),
+  createSdkMcpServer: () => ({}),
+}));
+
 import { loadProject } from "../project.js";
 import { validateWebhooks, createFetchHandler, type ServeContext } from "../commands/serve.js";
 import type { WebhookConfig, Project } from "../project.js";
@@ -544,41 +577,9 @@ describe("createFetchHandler dispatch routing", () => {
     error: () => {},
   };
 
-  let cloudTaskCalls: unknown[] = [];
-  let sqsSendCalls: unknown[] = [];
-
-  mock.module("@google-cloud/tasks", () => ({
-    CloudTasksClient: class {
-      async createTask(args: unknown) {
-        cloudTaskCalls.push(args);
-        return [{ name: "projects/test/locations/l/queues/q/tasks/t-1" }];
-      }
-    },
-    protos: { google: { cloud: { tasks: { v2: {} } } } },
-  }));
-
-  mock.module("@aws-sdk/client-sqs", () => ({
-    SQSClient: class {
-      async send(command: unknown) {
-        sqsSendCalls.push(command);
-        return { MessageId: "msg-1" };
-      }
-    },
-    SendMessageCommand: class {
-      input: unknown;
-      constructor(input: unknown) { this.input = input; }
-    },
-  }));
-
-  mock.module("@anthropic-ai/claude-agent-sdk", () => ({
-    query: () => { throw new Error("query should not be called in dispatch tests"); },
-    tool: () => ({}),
-    createSdkMcpServer: () => ({}),
-  }));
-
   afterEach(() => {
-    cloudTaskCalls = [];
-    sqsSendCalls = [];
+    _cloudTaskCalls = [];
+    _sqsSendCalls = [];
   });
 
   function makeServeContext(webhooks: WebhookConfig[]): ServeContext {
@@ -627,7 +628,7 @@ describe("createFetchHandler dispatch routing", () => {
 
     const response = await handler(request);
     expect(response.status).toBe(202);
-    expect(cloudTaskCalls.length).toBe(1);
+    expect(_cloudTaskCalls.length).toBe(1);
   });
 
   test("webhook with cloud-tasks dispatch executes directly when dispatched header is present", async () => {
@@ -651,7 +652,7 @@ describe("createFetchHandler dispatch routing", () => {
     });
 
     const response = await handler(request);
-    expect(cloudTaskCalls.length).toBe(0);
+    expect(_cloudTaskCalls.length).toBe(0);
     expect(response.status).not.toBe(202);
   });
 
@@ -676,7 +677,7 @@ describe("createFetchHandler dispatch routing", () => {
     });
 
     const response = await handler(request);
-    expect(cloudTaskCalls.length).toBe(0);
+    expect(_cloudTaskCalls.length).toBe(0);
     expect(response.status).not.toBe(202);
   });
 
@@ -699,7 +700,7 @@ describe("createFetchHandler dispatch routing", () => {
 
     const response = await handler(request);
     expect(response.status).toBe(202);
-    expect(sqsSendCalls.length).toBe(1);
+    expect(_sqsSendCalls.length).toBe(1);
   });
 
   test("webhook with aws-sqs dispatch executes directly when dispatched header is present", async () => {
@@ -722,7 +723,7 @@ describe("createFetchHandler dispatch routing", () => {
     });
 
     const response = await handler(request);
-    expect(sqsSendCalls.length).toBe(0);
+    expect(_sqsSendCalls.length).toBe(0);
     expect(response.status).not.toBe(202);
   });
 
@@ -741,8 +742,8 @@ describe("createFetchHandler dispatch routing", () => {
     });
 
     const response = await handler(request);
-    expect(cloudTaskCalls.length).toBe(0);
-    expect(sqsSendCalls.length).toBe(0);
+    expect(_cloudTaskCalls.length).toBe(0);
+    expect(_sqsSendCalls.length).toBe(0);
     expect(response.status).not.toBe(202);
   });
 });
