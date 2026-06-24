@@ -94,22 +94,16 @@ const noopLogger = {
 
 describe("resolveDispatchDeadlineSeconds", () => {
   test("uses dispatchDeadline when provided", () => {
-    expect(resolveDispatchDeadlineSeconds("30m", "15m", noopLogger as never)).toBe(1800);
+    expect(resolveDispatchDeadlineSeconds("30m", "15m")).toBe(1800);
   });
 
   test("falls back to project timeout", () => {
-    expect(resolveDispatchDeadlineSeconds(undefined, "15m", noopLogger as never)).toBe(900);
+    expect(resolveDispatchDeadlineSeconds(undefined, "15m")).toBe(900);
   });
 
-  test("returns undefined and warns when both are unset", () => {
-    let warned = false;
-    const warnLogger = {
-      ...noopLogger,
-      warn: () => { warned = true; },
-    };
-    const result = resolveDispatchDeadlineSeconds(undefined, undefined, warnLogger as never);
+  test("returns undefined when both are unset", () => {
+    const result = resolveDispatchDeadlineSeconds(undefined, undefined);
     expect(result).toBeUndefined();
-    expect(warned).toBe(true);
   });
 });
 

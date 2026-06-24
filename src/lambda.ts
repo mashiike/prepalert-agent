@@ -159,7 +159,12 @@ export async function startLambdaRuntime(
               continue;
             }
             const request = apiGatewayV2EventToRequest(innerEvent);
-            await handler(request);
+            const response = await handler(request);
+            if (!response.ok) {
+              logger.error("SQS record handler returned non-OK status", { messageId: record.messageId, status: response.status });
+              failures.push(record.messageId);
+              continue;
+            }
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             logger.error("SQS record processing failed", { messageId: record.messageId, error: msg });

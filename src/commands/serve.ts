@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Project, WebhookConfig, ServeConfig, DispatchConfig } from "../project.js";
+import type { Project, WebhookConfig, ServeConfig, DispatchConfig, CloudTasksDispatchConfig } from "../project.js";
 import type { AuthConfig } from "../auth.js";
 import { verifyAuth } from "../auth.js";
 import { executePrompt } from "./execute.js";
@@ -190,7 +190,7 @@ async function dispatchRequest(
   }
 }
 
-export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | undefined, healthCheckPath?: string | undefined): void {
+export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | undefined, healthCheckPath?: string | undefined, projectTimeout?: string | undefined): void {
   const pathSet = new Set<string>();
   const webhookMap = new Map<string, WebhookConfig>();
 
@@ -250,6 +250,16 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
         }
       }
     }
+
+    if (wh.dispatch.type === "cloud-tasks") {
+      const dd = (wh.dispatch as CloudTasksDispatchConfig).dispatchDeadline;
+      if (!dd && !projectTimeout) {
+        logger?.warn(
+          `dispatch.dispatchDeadline and project timeout are both unset on "${wh.path}"; Cloud Tasks will use its default deadline which may be too short for agent execution`,
+          { path: wh.path },
+        );
+      }
+    }
   }
 }
 
@@ -289,7 +299,7 @@ function initializeServeContext(project: Project, opts: ServeCommandOptions): Se
 
   if (webhooks.length > 0) {
     try {
-      validateWebhooks(webhooks, logger, healthCheckConfig.path);
+      validateWebhooks(webhooks, logger, healthCheckConfig.path, project.config.timeout);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       logger.error(message);

@@ -379,7 +379,7 @@ describe("validateWebhooks", () => {
       }),
       makeWebhook({ path: "/process", authType: "none", sync: true }),
     ];
-    validateWebhooks(webhooks, logger as never);
+    validateWebhooks(webhooks, logger as never, undefined, "15m");
     expect(warnings.length).toBe(1);
     expect(warnings[0]).toContain("authType \"none\"");
   });
@@ -420,7 +420,7 @@ describe("validateWebhooks", () => {
         },
       }),
     ];
-    validateWebhooks(webhooks, logger as never);
+    validateWebhooks(webhooks, logger as never, undefined, "15m");
     expect(warnings.length).toBe(1);
     expect(warnings[0]).toContain("authType \"none\"");
   });

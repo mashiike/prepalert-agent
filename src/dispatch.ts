@@ -78,7 +78,6 @@ async function resolveServiceAccountEmail(
 export function resolveDispatchDeadlineSeconds(
   dispatchDeadline: string | undefined,
   projectTimeout: string | undefined,
-  logger: Logger,
 ): number | undefined {
   if (dispatchDeadline) {
     return Math.ceil(parseDuration(dispatchDeadline));
@@ -86,9 +85,6 @@ export function resolveDispatchDeadlineSeconds(
   if (projectTimeout) {
     return Math.ceil(parseDuration(projectTimeout));
   }
-  logger.warn(
-    "dispatch.dispatchDeadline and project timeout are both unset; Cloud Tasks will use its default deadline which may be too short for agent execution",
-  );
   return undefined;
 }
 
@@ -114,7 +110,6 @@ export async function createCloudTask(params: CreateTaskParams): Promise<void> {
   const deadlineSeconds = resolveDispatchDeadlineSeconds(
     config.dispatchDeadline,
     projectTimeout,
-    logger,
   );
 
   const httpRequest: IHttpRequest = {
