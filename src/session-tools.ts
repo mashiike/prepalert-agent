@@ -47,7 +47,7 @@ function buildSessionTools(writer: SessionWriter) {
           } else {
             bytes = new TextEncoder().encode(args.content);
           }
-          await writer.writeArtifact(args.name, bytes);
+          await writer.writeArtifact(safeName, bytes);
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           return { content: [{ type: "text" as const, text: `Error saving artifact: ${msg}` }], isError: true };

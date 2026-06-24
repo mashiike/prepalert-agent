@@ -88,12 +88,14 @@ export class SessionWriter implements TranscriptWriter {
    */
   async writeRunbookReport(runbookId: string, toolUseId: string, content: string): Promise<void> {
     const safeRunbookId = runbookId.replace(/\//g, "--");
-    const reportDir = join(this.sessionDir, "runbooks", safeRunbookId, toolUseId);
+    const safeToolUseId = basename(toolUseId).replace(/\.\./g, "");
+    if (!safeToolUseId) throw new Error(`invalid toolUseId: ${toolUseId}`);
+    const reportDir = join(this.sessionDir, "runbooks", safeRunbookId, safeToolUseId);
     mkdirSync(reportDir, { recursive: true });
     const localPath = join(reportDir, "report.md");
     writeFileSync(localPath, content);
     if (this.storage) {
-      const storagePath = `runbooks/${safeRunbookId}/${toolUseId}/report.md`;
+      const storagePath = `runbooks/${safeRunbookId}/${safeToolUseId}/report.md`;
       await this.storage.writeArtifact(this.sessionId, storagePath, new TextEncoder().encode(content));
     }
   }
