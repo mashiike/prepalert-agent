@@ -1,20 +1,36 @@
-# `install-skills` サブコマンド
+# `skills` サブコマンド
 
 ## 概要
 
-prepalert-agent が提供するスキルファイルを、Claude Code やその他のエージェントツールにインストールするコマンド。AI（Anthropic API）を必要としない。
+prepalert-agent が提供するスキルファイルを、Claude Code やその他のエージェントツールにインストール・管理するコマンド。AI（Anthropic API）を必要としない。
 
 スキルファイルは prepalert-agent のバイナリに同梱されており、このコマンドで指定先のディレクトリに配置する。
 
 ## 使い方
 
 ```bash
-prepalert-agent install-skills [--target <target>]
+prepalert-agent skills <subcommand> [options]
 ```
 
-## オプション
+### サブコマンド
 
-### `--target`
+| コマンド | 説明 |
+|---|---|
+| `list` | 同梱されているスキルの一覧を表示 |
+| `install` | スキルをインストール |
+| `update` | インストール済みスキルを最新版に更新 |
+| `uninstall` | インストール済みスキルを削除 |
+| `status` | インストール済みスキルの状態を表示 |
+
+### `skills install`
+
+```bash
+prepalert-agent skills install [--scope <scope>] [--dry-run] [--force]
+```
+
+### オプション
+
+#### `--scope`
 
 - **型:** `string`
 - **必須:** No
@@ -24,7 +40,6 @@ prepalert-agent install-skills [--target <target>]
 |---|---|
 | `project` | `.claude/skills/` （プロジェクトローカル） |
 | `user` | `~/.claude/skills/` （ユーザーグローバル） |
-| 任意のパス | 指定されたパスに直接配置 |
 
 対話的選択時の選択肢:
 
@@ -35,39 +50,57 @@ prepalert-agent install-skills [--target <target>]
   (3) other   — パスを直接入力
 ```
 
+#### `--dry-run`
+
+変更を適用せずプレビューのみ表示する。
+
+#### `--force`
+
+既存のスキルファイルを上書きする。
+
+### `skills update`
+
+```bash
+prepalert-agent skills update [--scope <scope>] [--dry-run]
+```
+
+インストール済みスキルを最新版に更新する。`--scope` でスコープを指定、省略時は対話的に選択。
+
+### `skills uninstall`
+
+```bash
+prepalert-agent skills uninstall [--scope <scope>] [--dry-run]
+```
+
+インストール済みスキルを削除する。
+
+### `skills status`
+
+```bash
+prepalert-agent skills status [--scope <scope>]
+```
+
+インストール済みスキルのバージョンと更新状態を表示する。
+
 ## インストールされるスキル
 
-### `initialize-prepalert-project`
+### `prepalert-agent`
 
-プロジェクトの初期化を AI が支援するスキル。
+プロジェクトの設定、runbook 作成、webhook サーバーの構成を AI が支援するスキル。
 
 **インストール先のファイル構造:**
 
 ```
-<target>/initialize-prepalert-project/SKILL.md
+<scope>/prepalert-agent/
+├── SKILL.md
+└── references/
+    ├── instructions-guide.md
+    └── runbook-template.md
 ```
-
-**スキルの動作:**
-
-1. `prepalert-agent init` 相当の scaffolding を実行（未初期化の場合）
-2. `.mcp.json` の MCP サーバー構成を読み取る
-3. プロジェクトの文脈（ディレクトリ構成、既存の設定ファイル等）を分析
-4. MCP サーバーで利用可能なツールに基づいて、実用的な runbook を生成
-5. `prepalert.yaml` の `instructions` を必要に応じて調整
 
 ## 対話モードとの関係
 
-対話モード (`prepalert-agent run`) のビルトインコマンド `/init` は、`initialize-prepalert-project` スキルと同等の処理を内部的に実行する。
+対話モード (`prepalert-agent run`) のビルトインコマンド `/init` は、同等の処理を内部的に実行する。
 
-- `install-skills` でインストールしたスキルは Claude Code 上で `/initialize-prepalert-project` として直接使用できる
+- `skills install` でインストールしたスキルは Claude Code 上で直接使用できる
 - prepalert-agent の対話モードでは `/init` コマンドで同じスキル定義を内部的に呼び出す
-- どちらの入口でも同じスキル定義に基づいて動作するため、結果は同等
-
-## 将来の拡張
-
-現在は `initialize-prepalert-project` のみ提供。将来的に以下のようなスキルの追加を想定する:
-
-- `generate-runbook` — 既存のアラート履歴や MCP サーバー情報から runbook を生成
-- `analyze-alert` — アラート内容を分析して対応方針を提示
-
-スキルが複数になった場合、`--skill <name>` オプションで個別指定、省略時は全スキルをインストールする形を想定する。

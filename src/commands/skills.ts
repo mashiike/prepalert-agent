@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, writeFile, rm, access } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { Command } from "commander";
@@ -74,7 +75,8 @@ function parseSkillFrontmatter(content: string): { name: string | undefined; ver
 }
 
 export async function loadAvailableSkills(): Promise<SkillDefinition[]> {
-  const skillsRoot = resolve(dirname(dirname(dirname(import.meta.path))), "skills");
+  const thisDir = dirname(fileURLToPath(import.meta.url));
+  const skillsRoot = resolve(dirname(dirname(thisDir)), "skills");
   const entries = await readdir(skillsRoot, { withFileTypes: true });
   const skills: SkillDefinition[] = [];
   for (const entry of entries) {
