@@ -65,11 +65,12 @@ export interface SendToSqsParams {
   request: Request;
   body: string;
   logger: Logger;
+  client?: { send: SQSClient["send"] } | undefined;
 }
 
 export async function sendToSqs(params: SendToSqsParams): Promise<void> {
   const { config, request, body, logger } = params;
-  const client = getClient();
+  const client = params.client ?? getClient();
 
   const baseUrl = config.baseUrl
     ?? `${request.headers.get("x-forwarded-proto") ?? "https"}://${request.headers.get("host") ?? "localhost"}`;

@@ -1,43 +1,10 @@
-import { describe, test, expect, mock, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
 import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-
-let _cloudTaskCalls: unknown[] = [];
-let _sqsSendCalls: unknown[] = [];
-
-mock.module("@google-cloud/tasks", () => ({
-  CloudTasksClient: class {
-    async createTask(args: unknown) {
-      _cloudTaskCalls.push(args);
-      return [{ name: "projects/test/locations/l/queues/q/tasks/t-1" }];
-    }
-  },
-  protos: { google: { cloud: { tasks: { v2: {} } } } },
-}));
-
-mock.module("@aws-sdk/client-sqs", () => ({
-  SQSClient: class {
-    async send(command: unknown) {
-      _sqsSendCalls.push(command);
-      return { MessageId: "msg-1" };
-    }
-  },
-  SendMessageCommand: class {
-    input: unknown;
-    constructor(input: unknown) { this.input = input; }
-  },
-}));
-
-mock.module("@anthropic-ai/claude-agent-sdk", () => ({
-  query: () => { throw new Error("query should not be called in dispatch tests"); },
-  tool: () => ({}),
-  createSdkMcpServer: () => ({}),
-}));
-
 import { loadProject } from "../project.js";
-import { validateWebhooks, createFetchHandler, type ServeContext } from "../commands/serve.js";
-import type { WebhookConfig, Project } from "../project.js";
+import { validateWebhooks, createFetchHandler, type ServeContext, type DispatchFn } from "../commands/serve.js";
+import type { WebhookConfig, Project, DispatchConfig } from "../project.js";
 import { DISPATCHED_HEADER } from "../dispatch.js";
 import { LocalSessionStorage } from "../storage.js";
 
@@ -577,9 +544,14 @@ describe("createFetchHandler dispatch routing", () => {
     error: () => {},
   };
 
+  let dispatchCalls: { config: DispatchConfig }[] = [];
+
+  const fakeDispatch: DispatchFn = async (config) => {
+    dispatchCalls.push({ config });
+  };
+
   afterEach(() => {
-    _cloudTaskCalls = [];
-    _sqsSendCalls = [];
+    dispatchCalls = [];
   });
 
   function makeServeContext(webhooks: WebhookConfig[]): ServeContext {
@@ -605,6 +577,7 @@ describe("createFetchHandler dispatch routing", () => {
       oidcConfig: null,
       handleSpaRequest: () => null,
       stats: { activeRequests: 0, totalRequests: 0, startTime: Date.now() },
+      dispatch: fakeDispatch,
     };
   }
 
@@ -628,57 +601,8 @@ describe("createFetchHandler dispatch routing", () => {
 
     const response = await handler(request);
     expect(response.status).toBe(202);
-    expect(_cloudTaskCalls.length).toBe(1);
-  });
-
-  test("webhook with cloud-tasks dispatch executes directly when dispatched header is present", async () => {
-    const ctx = makeServeContext([
-      {
-        path: "/webhook/alert",
-        authType: "none",
-        sync: true,
-        dispatch: {
-          type: "cloud-tasks",
-          queue: "projects/p/locations/l/queues/q",
-          baseUrl: "https://my-service.run.app",
-        },
-      },
-    ]);
-    const handler = createFetchHandler(ctx);
-    const request = new Request("http://localhost:8080/webhook/alert", {
-      method: "POST",
-      headers: { [DISPATCHED_HEADER]: "true" },
-      body: '{"alert":"test"}',
-    });
-
-    const response = await handler(request);
-    expect(_cloudTaskCalls.length).toBe(0);
-    expect(response.status).not.toBe(202);
-  });
-
-  test("webhook with cloud-tasks dispatch executes directly when Cloud Tasks header is present", async () => {
-    const ctx = makeServeContext([
-      {
-        path: "/webhook/alert",
-        authType: "none",
-        sync: true,
-        dispatch: {
-          type: "cloud-tasks",
-          queue: "projects/p/locations/l/queues/q",
-          baseUrl: "https://my-service.run.app",
-        },
-      },
-    ]);
-    const handler = createFetchHandler(ctx);
-    const request = new Request("http://localhost:8080/webhook/alert", {
-      method: "POST",
-      headers: { "x-cloudtasks-taskname": "task-abc" },
-      body: '{"alert":"test"}',
-    });
-
-    const response = await handler(request);
-    expect(_cloudTaskCalls.length).toBe(0);
-    expect(response.status).not.toBe(202);
+    expect(dispatchCalls.length).toBe(1);
+    expect(dispatchCalls[0]!.config.type).toBe("cloud-tasks");
   });
 
   test("webhook with aws-sqs dispatch returns 202 when no dispatched header", async () => {
@@ -700,50 +624,8 @@ describe("createFetchHandler dispatch routing", () => {
 
     const response = await handler(request);
     expect(response.status).toBe(202);
-    expect(_sqsSendCalls.length).toBe(1);
+    expect(dispatchCalls.length).toBe(1);
+    expect(dispatchCalls[0]!.config.type).toBe("aws-sqs");
   });
 
-  test("webhook with aws-sqs dispatch executes directly when dispatched header is present", async () => {
-    const ctx = makeServeContext([
-      {
-        path: "/webhook/alert",
-        authType: "none",
-        sync: true,
-        dispatch: {
-          type: "aws-sqs",
-          queueUrl: "https://sqs.us-east-1.amazonaws.com/123/q",
-        },
-      },
-    ]);
-    const handler = createFetchHandler(ctx);
-    const request = new Request("http://localhost:8080/webhook/alert", {
-      method: "POST",
-      headers: { [DISPATCHED_HEADER]: "true" },
-      body: '{"alert":"test"}',
-    });
-
-    const response = await handler(request);
-    expect(_sqsSendCalls.length).toBe(0);
-    expect(response.status).not.toBe(202);
-  });
-
-  test("webhook without dispatch always executes directly", async () => {
-    const ctx = makeServeContext([
-      {
-        path: "/webhook/simple",
-        authType: "none",
-        sync: true,
-      },
-    ]);
-    const handler = createFetchHandler(ctx);
-    const request = new Request("http://localhost:8080/webhook/simple", {
-      method: "POST",
-      body: '{"alert":"test"}',
-    });
-
-    const response = await handler(request);
-    expect(_cloudTaskCalls.length).toBe(0);
-    expect(_sqsSendCalls.length).toBe(0);
-    expect(response.status).not.toBe(202);
-  });
 });

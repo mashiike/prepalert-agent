@@ -1,20 +1,4 @@
-import { describe, test, expect, mock } from "bun:test";
-
-let _sqsSendCommands: unknown[] = [];
-
-mock.module("@aws-sdk/client-sqs", () => ({
-  SQSClient: class {
-    async send(command: unknown) {
-      _sqsSendCommands.push(command);
-      return { MessageId: "msg-1" };
-    }
-  },
-  SendMessageCommand: class {
-    input: unknown;
-    constructor(input: unknown) { this.input = input; }
-  },
-}));
-
+import { describe, test, expect } from "bun:test";
 import { requestToAPIGatewayV2Event, sendToSqs } from "../sqs-dispatch.js";
 
 function makeRequest(url: string, opts: { method?: string; headers?: Record<string, string>; body?: string } = {}): Request {
@@ -172,5 +156,24 @@ describe("sendToSqs", () => {
         logger: noopLogger as never,
       }),
     ).rejects.toThrow("exceeds the 262144 byte limit");
+  });
+
+  test("calls client.send with correct queue URL", async () => {
+    const calls: unknown[] = [];
+    const fakeClient = {
+      send: async (command: unknown) => {
+        calls.push(command);
+        return { MessageId: "msg-1" };
+      },
+    };
+    const request = makeRequest("http://localhost:8080/webhook/test");
+    await sendToSqs({
+      config: { type: "aws-sqs", queueUrl: "https://sqs.us-east-1.amazonaws.com/123/q" },
+      request,
+      body: '{"alert":"test"}',
+      logger: noopLogger as never,
+      client: fakeClient as never,
+    });
+    expect(calls.length).toBe(1);
   });
 });

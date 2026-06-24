@@ -258,6 +258,8 @@ export interface ServeCommandOptions {
   sessionsDir: string;
 }
 
+export type DispatchFn = (config: DispatchConfig, request: Request, body: string, projectTimeout: string | undefined, logger: Logger) => Promise<void>;
+
 export interface ServeContext {
   project: Project;
   serve: ServeConfig | undefined;
@@ -271,6 +273,7 @@ export interface ServeContext {
   oidcConfig: OidcConfig | null;
   handleSpaRequest: ReturnType<typeof createSpaHandler>;
   stats: { activeRequests: number; totalRequests: number; startTime: number };
+  dispatch?: DispatchFn | undefined;
 }
 
 function initializeServeContext(project: Project, opts: ServeCommandOptions): ServeContext {
@@ -352,6 +355,7 @@ function initializeServeContext(project: Project, opts: ServeCommandOptions): Se
 
 export function createFetchHandler(ctx: ServeContext): (request: Request) => Promise<Response> {
   const { project, serve, webhookMap, storage, remoteStorage, sessionsDir, logger, healthCheckConfig, exportSecret, oidcConfig, handleSpaRequest, stats } = ctx;
+  const doDispatch = ctx.dispatch ?? dispatchRequest;
 
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
@@ -451,7 +455,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
 
     if (webhook.dispatch && !isDispatchedRequest(request)) {
       try {
-        await dispatchRequest(webhook.dispatch, request, body, project.config.timeout, logger);
+        await doDispatch(webhook.dispatch, request, body, project.config.timeout, logger);
         logger.info("request dispatched", { method: request.method, path: url.pathname, type: webhook.dispatch.type, status: 202, duration_ms: Date.now() - start });
         return new Response("Accepted", { status: 202 });
       } catch (err) {

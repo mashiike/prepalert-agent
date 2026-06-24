@@ -1,20 +1,5 @@
-import { describe, test, expect, mock, afterEach } from "bun:test";
-
-let _capturedCloudTaskArgs: unknown = null;
-
-mock.module("@google-cloud/tasks", () => ({
-  CloudTasksClient: class {
-    async createTask(args: unknown) {
-      _capturedCloudTaskArgs = args;
-      return [{ name: "projects/test/locations/us-central1/queues/q/tasks/t-123" }];
-    }
-  },
-  protos: {
-    google: { cloud: { tasks: { v2: {} } } },
-  },
-}));
-
-import { isDispatchedRequest, resolveBaseUrl, resolveDispatchDeadlineSeconds, createCloudTask, resetClient, DISPATCHED_HEADER } from "../dispatch.js";
+import { describe, test, expect } from "bun:test";
+import { isDispatchedRequest, resolveBaseUrl, resolveDispatchDeadlineSeconds, createCloudTask, DISPATCHED_HEADER } from "../dispatch.js";
 import type { CloudTasksDispatchConfig } from "../project.js";
 
 function makeConfig(overrides: Partial<CloudTasksDispatchConfig> = {}): CloudTasksDispatchConfig {
@@ -108,7 +93,6 @@ const noopLogger = {
 };
 
 describe("resolveDispatchDeadlineSeconds", () => {
-
   test("uses dispatchDeadline when provided", () => {
     expect(resolveDispatchDeadlineSeconds("30m", "15m", noopLogger as never)).toBe(1800);
   });
@@ -129,109 +113,100 @@ describe("resolveDispatchDeadlineSeconds", () => {
   });
 });
 
-describe("createCloudTask", () => {
-  afterEach(() => {
-    _capturedCloudTaskArgs = null;
-    resetClient();
-  });
+function makeFakeCloudTasksClient() {
+  const calls: unknown[] = [];
+  const client = {
+    createTask: async (args: unknown) => {
+      calls.push(args);
+      return [{ name: "projects/test/locations/us-central1/queues/q/tasks/t-123" }];
+    },
+  };
+  return { client, calls };
+}
 
+describe("createCloudTask", () => {
   test("includes x-prepalert-dispatched header in task http request", async () => {
+    const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app" });
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
 
     await createCloudTask({
-      config,
-      request,
-      body: '{"alert":"test"}',
-      projectTimeout: "15m",
-      logger: noopLogger as never,
+      config, request, body: '{"alert":"test"}', projectTimeout: "15m",
+      logger: noopLogger as never, client,
     });
 
-    expect(_capturedCloudTaskArgs).not.toBeNull();
-    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
+    expect(calls.length).toBe(1);
+    const task = (calls[0] as { task: { httpRequest: { headers: Record<string, string> } } }).task;
     expect(task.httpRequest.headers[DISPATCHED_HEADER]).toBe("true");
   });
 
   test("sets correct target URL from config baseUrl and request path", async () => {
+    const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app" });
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
 
     await createCloudTask({
-      config,
-      request,
-      body: '{"alert":"test"}',
-      projectTimeout: undefined,
-      logger: noopLogger as never,
+      config, request, body: '{"alert":"test"}', projectTimeout: undefined,
+      logger: noopLogger as never, client,
     });
 
-    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { url: string } } }).task;
+    const task = (calls[0] as { task: { httpRequest: { url: string } } }).task;
     expect(task.httpRequest.url).toBe("https://my-service.run.app/webhook/mackerel");
   });
 
   test("uses targetPath when configured", async () => {
-    const config = makeConfig({
-      baseUrl: "https://my-service.run.app",
-      targetPath: "/internal/process",
-    });
+    const { client, calls } = makeFakeCloudTasksClient();
+    const config = makeConfig({ baseUrl: "https://my-service.run.app", targetPath: "/internal/process" });
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
 
     await createCloudTask({
-      config,
-      request,
-      body: '{"alert":"test"}',
-      projectTimeout: undefined,
-      logger: noopLogger as never,
+      config, request, body: '{"alert":"test"}', projectTimeout: undefined,
+      logger: noopLogger as never, client,
     });
 
-    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { url: string } } }).task;
+    const task = (calls[0] as { task: { httpRequest: { url: string } } }).task;
     expect(task.httpRequest.url).toBe("https://my-service.run.app/internal/process");
   });
 
   test("sets Content-Type header to application/json", async () => {
+    const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app" });
     const request = makeRequest("http://localhost:8080/webhook/test");
 
     await createCloudTask({
-      config,
-      request,
-      body: "{}",
-      projectTimeout: undefined,
-      logger: noopLogger as never,
+      config, request, body: "{}", projectTimeout: undefined,
+      logger: noopLogger as never, client,
     });
 
-    const task = (_capturedCloudTaskArgs as { task: { httpRequest: { headers: Record<string, string> } } }).task;
+    const task = (calls[0] as { task: { httpRequest: { headers: Record<string, string> } } }).task;
     expect(task.httpRequest.headers["Content-Type"]).toBe("application/json");
   });
 
   test("sets dispatchDeadline when timeout is configured", async () => {
+    const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app", dispatchDeadline: "30m" });
     const request = makeRequest("http://localhost:8080/webhook/test");
 
     await createCloudTask({
-      config,
-      request,
-      body: "{}",
-      projectTimeout: undefined,
-      logger: noopLogger as never,
+      config, request, body: "{}", projectTimeout: undefined,
+      logger: noopLogger as never, client,
     });
 
-    const task = (_capturedCloudTaskArgs as { task: { dispatchDeadline: { seconds: number } } }).task;
+    const task = (calls[0] as { task: { dispatchDeadline: { seconds: number } } }).task;
     expect(task.dispatchDeadline).toEqual({ seconds: 1800 });
   });
 
   test("omits dispatchDeadline when no timeout is configured", async () => {
+    const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app" });
     const request = makeRequest("http://localhost:8080/webhook/test");
 
     await createCloudTask({
-      config,
-      request,
-      body: "{}",
-      projectTimeout: undefined,
-      logger: noopLogger as never,
+      config, request, body: "{}", projectTimeout: undefined,
+      logger: noopLogger as never, client,
     });
 
-    const task = (_capturedCloudTaskArgs as { task: { dispatchDeadline?: unknown } }).task;
+    const task = (calls[0] as { task: { dispatchDeadline?: unknown } }).task;
     expect(task.dispatchDeadline).toBeUndefined();
   });
 });

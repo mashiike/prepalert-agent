@@ -98,6 +98,7 @@ export interface CreateTaskParams {
   body: string;
   projectTimeout: string | undefined;
   logger: Logger;
+  client?: { createTask: CloudTasksClient["createTask"] } | undefined;
 }
 
 /**
@@ -105,7 +106,7 @@ export interface CreateTaskParams {
  */
 export async function createCloudTask(params: CreateTaskParams): Promise<void> {
   const { config, request, body, projectTimeout, logger } = params;
-  const client = getClient();
+  const client = params.client ?? getClient();
   const baseUrl = resolveBaseUrl(config, request);
   const targetPath = config.targetPath ?? new URL(request.url).pathname;
   const url = `${baseUrl}${targetPath}`;
