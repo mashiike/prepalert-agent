@@ -1,4 +1,20 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
+
+let _sqsSendCommands: unknown[] = [];
+
+mock.module("@aws-sdk/client-sqs", () => ({
+  SQSClient: class {
+    async send(command: unknown) {
+      _sqsSendCommands.push(command);
+      return { MessageId: "msg-1" };
+    }
+  },
+  SendMessageCommand: class {
+    input: unknown;
+    constructor(input: unknown) { this.input = input; }
+  },
+}));
+
 import { requestToAPIGatewayV2Event, sendToSqs } from "../sqs-dispatch.js";
 
 function makeRequest(url: string, opts: { method?: string; headers?: Record<string, string>; body?: string } = {}): Request {
