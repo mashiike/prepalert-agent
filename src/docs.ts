@@ -78,7 +78,8 @@ export function formatIndex(sections: DocsSection[]): string {
 }
 
 function getDocsRoot(): string {
-  return resolve(dirname(dirname(import.meta.path)), "docs", "spec");
+  const thisDir = dirname(new URL(import.meta.url).pathname);
+  return resolve(dirname(thisDir), "docs", "spec");
 }
 
 export async function listArticles(): Promise<DocsArticle[]> {

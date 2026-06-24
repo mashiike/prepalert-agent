@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { requestToAPIGatewayV2Event } from "../sqs-dispatch.js";
+import { requestToAPIGatewayV2Event, sendToSqs } from "../sqs-dispatch.js";
 
 function makeRequest(url: string, opts: { method?: string; headers?: Record<string, string>; body?: string } = {}): Request {
   return new Request(url, {
@@ -85,6 +85,18 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(event.requestContext.http.sourceIp).toBe("10.0.0.1");
   });
 
+  test("extracts first IP from comma-separated x-forwarded-for", () => {
+    const request = makeRequest("http://localhost:8080/webhook/test", {
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "10.0.0.1, 192.168.1.1, 172.16.0.1",
+      },
+    });
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+
+    expect(event.requestContext.http.sourceIp).toBe("10.0.0.1");
+  });
+
   test("uses 127.0.0.1 as default sourceIp", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
     const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
@@ -122,5 +134,27 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(deserialized.body).toBe('{"alert":"fired","severity":"critical"}');
     expect(deserialized.headers["x-prepalert-dispatched"]).toBe("true");
     expect(deserialized.requestContext.domainName).toBe("my-lambda.example.com");
+  });
+});
+
+describe("sendToSqs", () => {
+  const noopLogger = {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+  };
+
+  test("throws when message exceeds SQS size limit", async () => {
+    const request = makeRequest("http://localhost:8080/webhook/test");
+    const largeBody = "x".repeat(300000);
+    await expect(
+      sendToSqs({
+        config: { type: "aws-sqs", queueUrl: "https://sqs.us-east-1.amazonaws.com/123/q" },
+        request,
+        body: largeBody,
+        logger: noopLogger as never,
+      }),
+    ).rejects.toThrow("exceeds the 262144 byte limit");
   });
 });

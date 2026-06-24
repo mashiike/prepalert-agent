@@ -1,5 +1,5 @@
 import { mkdirSync, appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve, basename } from "node:path";
+import { join, basename } from "node:path";
 import type { TranscriptEvent, TranscriptWriter } from "./transcript.js";
 import type { SessionStorage, SessionMetadata } from "./storage.js";
 import { createSessionDir } from "./storage.js";

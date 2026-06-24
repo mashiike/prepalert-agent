@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { tool, createSdkMcpServer, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
-import type { SessionWriter } from "./session-writer.js";
+import { type SessionWriter, validateArtifactName } from "./session-writer.js";
 
 /**
  * Builds an inline MCP server providing session tools (create_report, create_artifact).
@@ -34,8 +34,10 @@ function buildSessionTools(writer: SessionWriter) {
       },
       async (args) => {
         const encoding = args.encoding ?? "utf-8";
+        let safeName: string;
         let bytes: Uint8Array;
         try {
+          safeName = validateArtifactName(args.name);
           if (encoding === "base64") {
             const binary = atob(args.content);
             bytes = new Uint8Array(binary.length);
@@ -50,7 +52,7 @@ function buildSessionTools(writer: SessionWriter) {
           const msg = e instanceof Error ? e.message : String(e);
           return { content: [{ type: "text" as const, text: `Error saving artifact: ${msg}` }], isError: true };
         }
-        return { content: [{ type: "text" as const, text: `Artifact "${args.name}" saved successfully.` }] };
+        return { content: [{ type: "text" as const, text: `Artifact "${safeName}" saved successfully.` }] };
       },
     ),
   ];

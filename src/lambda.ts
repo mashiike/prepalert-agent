@@ -129,10 +129,12 @@ export async function startLambdaRuntime(
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.error("failed to fetch next invocation from Lambda Runtime API", { error: msg });
+      await new Promise(r => setTimeout(r, 1000));
       continue;
     }
     if (!nextResponse.ok) {
       logger.error("Lambda Runtime API /invocation/next returned non-OK status", { status: nextResponse.status });
+      await new Promise(r => setTimeout(r, 1000));
       continue;
     }
 

@@ -46,7 +46,7 @@ export function requestToAPIGatewayV2Event(
         method: request.method,
         path: effectivePath,
         protocol: "HTTP/1.1",
-        sourceIp: request.headers.get("x-forwarded-for") ?? "127.0.0.1",
+        sourceIp: (request.headers.get("x-forwarded-for") ?? "127.0.0.1").split(",")[0]!.trim(),
         userAgent: request.headers.get("user-agent") ?? "",
       },
       domainName: hostname,
