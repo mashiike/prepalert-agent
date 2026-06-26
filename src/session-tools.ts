@@ -39,11 +39,7 @@ function buildSessionTools(writer: SessionWriter) {
         try {
           safeName = validateArtifactName(args.name);
           if (encoding === "base64") {
-            const binary = atob(args.content);
-            bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-              bytes[i] = binary.charCodeAt(i);
-            }
+            bytes = Buffer.from(args.content, "base64");
           } else {
             bytes = new TextEncoder().encode(args.content);
           }

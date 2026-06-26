@@ -153,9 +153,13 @@ export async function handleCallback(request: Request, config: OidcConfig): Prom
     return new Response("Missing state cookie", { status: 400 });
   }
 
+  const stateParam = url.searchParams.get("state");
   const statePayload = await verifyState(stateCookie, config.sessionSecret);
-  if (!statePayload || !statePayload["cv"] || !statePayload["rt"]) {
+  if (!statePayload || !statePayload["cv"] || !statePayload["rt"] || !statePayload["n"]) {
     return new Response("Invalid state", { status: 400 });
+  }
+  if (stateParam !== statePayload["n"]) {
+    return new Response("State mismatch", { status: 400 });
   }
 
   const codeVerifier = statePayload["cv"];

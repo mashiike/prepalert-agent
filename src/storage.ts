@@ -1,5 +1,5 @@
 import { readFile, readdir, stat, writeFile, mkdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
   S3Client,
   ListObjectsV2Command,
@@ -530,14 +530,14 @@ export class LocalSessionStorage implements SessionStorage {
     const sessionDir = this.resolveSessionDir(id);
     const artifactsDir = resolve(join(sessionDir, "artifacts"));
     const filePath = resolve(join(artifactsDir, name));
-    if (!filePath.startsWith(artifactsDir)) return null;
+    if (!filePath.startsWith(artifactsDir + sep)) return null;
     try {
       const buf = await readFile(filePath);
       return new Uint8Array(buf);
     } catch {
       const legacyArtifactsDir = resolve(join(this.sessionsDir, id, "artifacts"));
       const legacyPath = resolve(join(legacyArtifactsDir, name));
-      if (!legacyPath.startsWith(legacyArtifactsDir)) return null;
+      if (!legacyPath.startsWith(legacyArtifactsDir + sep)) return null;
       try {
         const buf = await readFile(legacyPath);
         return new Uint8Array(buf);
@@ -589,13 +589,13 @@ export class LocalSessionStorage implements SessionStorage {
     const sessionDir = this.resolveSessionDir(id);
     const reportPath = resolve(join(sessionDir, "runbooks", runbookId, toolUseId, "report.md"));
     const runbooksBase = resolve(join(sessionDir, "runbooks"));
-    if (!reportPath.startsWith(runbooksBase)) return null;
+    if (!reportPath.startsWith(runbooksBase + sep)) return null;
     try {
       return await readFile(reportPath, "utf-8");
     } catch {
       const legacyPath = resolve(join(this.sessionsDir, id, "runbooks", runbookId, toolUseId, "report.md"));
       const legacyBase = resolve(join(this.sessionsDir, id, "runbooks"));
-      if (!legacyPath.startsWith(legacyBase)) return null;
+      if (!legacyPath.startsWith(legacyBase + sep)) return null;
       try {
         return await readFile(legacyPath, "utf-8");
       } catch {

@@ -88,8 +88,7 @@ export class SessionWriter implements TranscriptWriter {
    */
   async writeRunbookReport(runbookId: string, toolUseId: string, content: string): Promise<void> {
     const safeRunbookId = runbookId.replace(/\//g, "--");
-    const safeToolUseId = basename(toolUseId).replace(/\.\./g, "");
-    if (!safeToolUseId) throw new Error(`invalid toolUseId: ${toolUseId}`);
+    const safeToolUseId = validateArtifactName(toolUseId);
     const reportDir = join(this.sessionDir, "runbooks", safeRunbookId, safeToolUseId);
     mkdirSync(reportDir, { recursive: true });
     const localPath = join(reportDir, "report.md");

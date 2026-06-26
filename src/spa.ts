@@ -40,7 +40,7 @@ function handleStaticDir(url: URL, staticDir: string): Response | null {
   }
 
   const filePath = join(staticDir, pathname);
-  if (!filePath.startsWith(staticDir)) {
+  if (!filePath.startsWith(staticDir + "/")) {
     return null;
   }
 
