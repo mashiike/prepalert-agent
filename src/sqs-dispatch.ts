@@ -1,6 +1,6 @@
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { DISPATCHED_HEADER } from "./dispatch.js";
-import type { APIGatewayV2Event } from "./lambda.js";
+import type { APIGatewayProxyEventV2 } from "./lambda.js";
 import type { SqsDispatchConfig } from "./project.js";
 import type { Logger } from "./logger.js";
 
@@ -24,7 +24,7 @@ export function requestToAPIGatewayV2Event(
   body: string,
   baseUrl: string,
   targetPath?: string | undefined,
-): APIGatewayV2Event {
+): APIGatewayProxyEventV2 {
   const url = new URL(request.url);
   const effectivePath = targetPath ?? url.pathname;
   const headers: Record<string, string> = {};
@@ -42,6 +42,9 @@ export function requestToAPIGatewayV2Event(
     rawQueryString: url.search.replace(/^\?/, ""),
     headers,
     requestContext: {
+      accountId: "",
+      apiId: "",
+      domainPrefix: "",
       http: {
         method: request.method,
         path: effectivePath,
@@ -50,6 +53,7 @@ export function requestToAPIGatewayV2Event(
         userAgent: request.headers.get("user-agent") ?? "",
       },
       domainName: hostname,
+      routeKey: `${request.method} ${effectivePath}`,
       stage: "$default",
       requestId: crypto.randomUUID(),
       time: new Date().toISOString(),

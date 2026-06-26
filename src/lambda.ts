@@ -1,59 +1,18 @@
+import type {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyStructuredResultV2,
+  SQSEvent as AWSSQSEvent,
+  SQSBatchResponse,
+} from "aws-lambda";
 import type { Logger } from "./logger.js";
 
-export interface APIGatewayV2Event {
-  version: "2.0";
-  routeKey: string;
-  rawPath: string;
-  rawQueryString: string;
-  headers: Record<string, string | undefined>;
-  queryStringParameters?: Record<string, string | undefined> | undefined;
-  requestContext: {
-    http: {
-      method: string;
-      path: string;
-      protocol: string;
-      sourceIp: string;
-      userAgent: string;
-    };
-    domainName: string;
-    stage: string;
-    requestId: string;
-    time: string;
-    timeEpoch: number;
-  };
-  body?: string | undefined;
-  isBase64Encoded: boolean;
-}
-
-export interface SQSRecord {
-  messageId: string;
-  receiptHandle: string;
-  body: string;
-  attributes: Record<string, string>;
-  messageAttributes: Record<string, unknown>;
-  md5OfBody: string;
-  eventSource: "aws:sqs";
-  eventSourceARN: string;
-  awsRegion: string;
-}
-
-export interface SQSEvent {
-  Records: SQSRecord[];
-}
-
-export interface APIGatewayV2Response {
-  statusCode: number;
-  headers?: Record<string, string> | undefined;
-  cookies?: string[] | undefined;
-  body?: string | undefined;
-  isBase64Encoded?: boolean | undefined;
-}
+export type { APIGatewayProxyEventV2 } from "aws-lambda";
 
 export function isLambdaEnvironment(): boolean {
   return process.env["AWS_LAMBDA_FUNCTION_NAME"] !== undefined;
 }
 
-export function isSQSEvent(event: unknown): event is SQSEvent {
+export function isSQSEvent(event: unknown): event is AWSSQSEvent {
   if (event === null || typeof event !== "object") return false;
   const candidate = event as Record<string, unknown>;
   if (!Array.isArray(candidate["Records"])) return false;
@@ -64,21 +23,23 @@ export function isSQSEvent(event: unknown): event is SQSEvent {
   return (first as Record<string, unknown>)["eventSource"] === "aws:sqs";
 }
 
-export function isAPIGatewayV2Event(event: unknown): event is APIGatewayV2Event {
+export function isAPIGatewayV2Event(event: unknown): event is APIGatewayProxyEventV2 {
   if (event === null || typeof event !== "object") return false;
   const candidate = event as Record<string, unknown>;
   return candidate["version"] === "2.0" && "requestContext" in candidate;
 }
 
-export function apiGatewayV2EventToRequest(event: APIGatewayV2Event): Request {
+export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Request {
   const domain = event.requestContext.domainName;
   const qs = event.rawQueryString ? `?${event.rawQueryString}` : "";
   const url = `https://${domain}${event.rawPath}${qs}`;
 
   const headers = new Headers();
-  for (const [key, value] of Object.entries(event.headers)) {
-    if (value !== undefined) {
-      headers.set(key, value);
+  if (event.headers) {
+    for (const [key, value] of Object.entries(event.headers)) {
+      if (value !== undefined) {
+        headers.set(key, value);
+      }
     }
   }
 
@@ -95,7 +56,7 @@ export function apiGatewayV2EventToRequest(event: APIGatewayV2Event): Request {
   });
 }
 
-export async function responseToAPIGatewayV2(response: Response): Promise<APIGatewayV2Response> {
+export async function responseToAPIGatewayV2(response: Response): Promise<APIGatewayProxyStructuredResultV2> {
   const headers: Record<string, string> = {};
   const cookies: string[] = [];
   response.headers.forEach((value, key) => {
@@ -106,7 +67,7 @@ export async function responseToAPIGatewayV2(response: Response): Promise<APIGat
     }
   });
   const body = await response.text();
-  const result: APIGatewayV2Response = {
+  const result: APIGatewayProxyStructuredResultV2 = {
     statusCode: response.status,
     headers,
     body,
@@ -179,9 +140,10 @@ export async function startLambdaRuntime(
             failures.push(record.messageId);
           }
         }
-        responseBody = JSON.stringify({
+        const batchResponse: SQSBatchResponse = {
           batchItemFailures: failures.map(id => ({ itemIdentifier: id })),
-        });
+        };
+        responseBody = JSON.stringify(batchResponse);
       } else if (isAPIGatewayV2Event(event)) {
         const request = apiGatewayV2EventToRequest(event);
         const httpResponse = await handler(request);
