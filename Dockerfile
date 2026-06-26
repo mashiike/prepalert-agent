@@ -14,8 +14,13 @@ FROM node:26-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 COPY --from=builder /build/prepalert-agent /usr/local/bin/prepalert-agent
+COPY docs/spec/ /usr/local/share/prepalert-agent/docs/spec/
+COPY skills/ /usr/local/share/prepalert-agent/skills/
 COPY LICENSE RELINKING.md /usr/share/licenses/prepalert-agent/
 COPY --from=builder /build/THIRD_PARTY_LICENSES.md /usr/share/licenses/prepalert-agent/
+
+ENV PREPALERT_DOCS_DIR=/usr/local/share/prepalert-agent/docs/spec
+ENV PREPALERT_SKILLS_DIR=/usr/local/share/prepalert-agent/skills
 
 WORKDIR /app
 

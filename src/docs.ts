@@ -79,6 +79,9 @@ export function formatIndex(sections: DocsSection[]): string {
 }
 
 function getDocsRoot(): string {
+  if (process.env["PREPALERT_DOCS_DIR"]) {
+    return resolve(process.env["PREPALERT_DOCS_DIR"]);
+  }
   const thisDir = dirname(fileURLToPath(import.meta.url));
   return resolve(dirname(thisDir), "docs", "spec");
 }

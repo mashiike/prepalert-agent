@@ -7,6 +7,4 @@ sessions/
 .env.*
 .git/
 _examples/
-docs/
-skills/
 *.tar.gz

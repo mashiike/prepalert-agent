@@ -30,9 +30,10 @@ export function isAPIGatewayV2Event(event: unknown): event is APIGatewayProxyEve
 }
 
 export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Request {
-  const domain = event.requestContext.domainName;
+  const proto = event.headers?.["x-forwarded-proto"] ?? "https";
+  const host = event.headers?.["host"] ?? event.requestContext.domainName;
   const qs = event.rawQueryString ? `?${event.rawQueryString}` : "";
-  const url = `https://${domain}${event.rawPath}${qs}`;
+  const url = `${proto}://${host}${event.rawPath}${qs}`;
 
   const headers = new Headers();
   if (event.headers) {

@@ -75,8 +75,9 @@ function parseSkillFrontmatter(content: string): { name: string | undefined; ver
 }
 
 export async function loadAvailableSkills(): Promise<SkillDefinition[]> {
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  const skillsRoot = resolve(dirname(dirname(thisDir)), "skills");
+  const skillsRoot = process.env["PREPALERT_SKILLS_DIR"]
+    ? resolve(process.env["PREPALERT_SKILLS_DIR"])
+    : resolve(dirname(dirname(dirname(fileURLToPath(import.meta.url)))), "skills");
   const entries = await readdir(skillsRoot, { withFileTypes: true });
   const skills: SkillDefinition[] = [];
   for (const entry of entries) {

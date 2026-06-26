@@ -68,7 +68,7 @@ jobs:
           bun build --compile --minify --target=${{ matrix.target }} src/index.ts --outfile prepalert-agent
       - name: Create archive
         run: |
-          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent LICENSE RELINKING.md THIRD_PARTY_LICENSES.md
+          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent LICENSE RELINKING.md THIRD_PARTY_LICENSES.md docs/spec/ skills/
       - name: Upload to release
         run: |
           TAG="${{ inputs.tag || needs.tagpr.outputs.tag }}"
