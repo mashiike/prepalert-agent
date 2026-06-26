@@ -403,7 +403,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       if (isRunning) {
         html += '<div class="loading"><span class="spinner"></span><span>Investigation in progress...</span></div>';
       }
-      const res = await fetch(API + '/sessions/' + selected + '/report');
+      const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/report');
       if (res.ok) {
         const md = await res.text();
         html += renderMarkdown(md);
@@ -412,14 +412,14 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       }
       area.innerHTML = html || '<div class="empty">Waiting for report...</div>';
     } else if (tab === 'runbooks') {
-      const res = await fetch(API + '/sessions/' + selected + '/runbooks');
+      const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/runbooks');
       if (!res.ok) { area.innerHTML = '<div class="empty">No runbook reports</div>'; return; }
       const entries = await res.json();
       if (entries.length === 0) { area.innerHTML = '<div class="empty">No runbook reports</div>'; return; }
       let html = '';
       for (const entry of entries) {
         const rid = entry.runbookId.replace(/--/g, '/');
-        const reportRes = await fetch(API + '/sessions/' + selected + '/runbooks/' + encodeURIComponent(entry.runbookId) + '/' + encodeURIComponent(entry.toolUseId) + '/report');
+        const reportRes = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/runbooks/' + encodeURIComponent(entry.runbookId) + '/' + encodeURIComponent(entry.toolUseId) + '/report');
         const body = reportRes.ok ? renderMarkdown(await reportRes.text()) : '<div class="empty">Failed to load report</div>';
         html +=
           '<div class="runbook-card">' +
@@ -432,7 +432,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       }
       area.innerHTML = html;
     } else if (tab === 'artifacts') {
-      const res = await fetch(API + '/sessions/' + selected + '/artifacts');
+      const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/artifacts');
       if (!res.ok) { area.innerHTML = '<div class="empty">No artifacts</div>'; return; }
       const names = await res.json();
       if (names.length === 0) { area.innerHTML = '<div class="empty">No artifacts</div>'; return; }
@@ -470,7 +470,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       }
       area.innerHTML = html;
     } else if (tab === 'transcript') {
-      const res = await fetch(API + '/sessions/' + selected + '/transcript');
+      const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/transcript');
       if (!res.ok) { area.innerHTML = '<div class="empty">No transcript</div>'; return; }
       const events = await res.json();
       if (events.length === 0) { area.innerHTML = '<div class="empty">No transcript events</div>'; return; }
@@ -623,7 +623,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
   }
 
   async function onExport() {
-    const res = await fetch(API + '/sessions/' + selected + '/export-url', { method: 'POST' });
+    const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/export-url', { method: 'POST' });
     if (!res.ok) { toast('Export failed'); return; }
     const data = await res.json();
     window.open(data.url, '_blank');
@@ -661,7 +661,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
   }
 
   async function generatePrompt() {
-    const res = await fetch(API + '/sessions/' + selected + '/export-url', { method: 'POST' });
+    const res = await fetch(API + '/sessions/' + encodeURIComponent(selected) + '/export-url', { method: 'POST' });
     let url = '(export URL generation failed)';
     if (res.ok) {
       const data = await res.json();
@@ -708,7 +708,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       if (!selected) return;
       const s = sessions.find(x => x.id === selected);
       if (!s || s.status !== 'running') { stopDetailPolling(); return; }
-      const res = await fetch(API + '/sessions/' + selected);
+      const res = await fetch(API + '/sessions/' + encodeURIComponent(selected));
       if (!res.ok) return;
       const meta = await res.json();
       s.status = meta.status;

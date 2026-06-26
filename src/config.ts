@@ -91,8 +91,9 @@ export function expandEnvVarsInObject<T>(obj: T): T {
     return obj.map((item) => expandEnvVarsInObject(item)) as T;
   }
   if (obj !== null && typeof obj === "object") {
-    const result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const [key, value] of Object.entries(obj)) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
       result[key] = expandEnvVarsInObject(value);
     }
     return result as T;

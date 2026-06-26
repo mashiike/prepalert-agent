@@ -90,7 +90,7 @@ export async function handleApiRequest(
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Content-Type-Options": "nosniff" },
   });
 }
 
@@ -139,7 +139,7 @@ async function handleGetReport(id: string, ctx: ApiContext): Promise<Response> {
   try {
     const content = await ctx.storage.readReport(id);
     if (!content) return errorResponse("report not found", 404);
-    return new Response(content, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+    return new Response(content, { headers: { "Content-Type": "text/markdown; charset=utf-8", "X-Content-Type-Options": "nosniff" } });
   } catch (e) {
     ctx.logger.error("readReport failed", { error: e instanceof Error ? e.message : String(e) });
     return errorResponse("internal server error", 500);
@@ -163,7 +163,7 @@ async function handleGetRunbookReport(id: string, runbookId: string, toolUseId: 
   try {
     const content = await ctx.storage.readRunbookReport(id, runbookId, toolUseId);
     if (!content) return errorResponse("runbook report not found", 404);
-    return new Response(content, { headers: { "Content-Type": "text/markdown; charset=utf-8" } });
+    return new Response(content, { headers: { "Content-Type": "text/markdown; charset=utf-8", "X-Content-Type-Options": "nosniff" } });
   } catch (e) {
     ctx.logger.error("readRunbookReport failed", { error: e instanceof Error ? e.message : String(e) });
     return errorResponse("internal server error", 500);
@@ -187,7 +187,13 @@ async function handleGetArtifact(id: string, name: string, ctx: ApiContext): Pro
   try {
     const content = await ctx.storage.readArtifact(id, name);
     if (!content) return errorResponse("artifact not found", 404);
-    return new Response(content, { headers: { "Content-Type": inferMimeType(name) } });
+    return new Response(content, {
+      headers: {
+        "Content-Type": inferMimeType(name),
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(name)}"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
   } catch (e) {
     ctx.logger.error("readArtifact failed", { error: e instanceof Error ? e.message : String(e) });
     return errorResponse("internal server error", 500);
