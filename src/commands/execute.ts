@@ -17,6 +17,7 @@ class RunbookReportTracker {
   private pendingAgentCalls = new Map<string, { runbookId: string; toolUseId: string }>();
   private readonly writer: SessionWriter | null;
   private readonly logger: Logger;
+  private readonly pendingWrites: Promise<void>[] = [];
 
   constructor(writer: TranscriptWriter, logger: Logger) {
     this.writer = "writeRunbookReport" in writer ? writer as SessionWriter : null;
@@ -43,13 +44,19 @@ class RunbookReportTracker {
         this.pendingAgentCalls.delete(toolUseId);
         const resultText = extractTextFromUserMessage(message);
         if (resultText && this.writer) {
-          this.writer.writeRunbookReport(pending.runbookId, pending.toolUseId, resultText).catch(e => {
+          const p = this.writer.writeRunbookReport(pending.runbookId, pending.toolUseId, resultText).catch(e => {
             const msg = e instanceof Error ? e.message : String(e);
             this.logger.warn("failed to save runbook report", { runbookId: pending.runbookId, toolUseId: pending.toolUseId, error: msg });
           });
+          this.pendingWrites.push(p);
         }
       }
     }
+  }
+
+  async flush(): Promise<void> {
+    await Promise.allSettled(this.pendingWrites);
+    this.pendingWrites.length = 0;
   }
 }
 
@@ -263,6 +270,7 @@ export async function executePrompt(project: Project, prompt: string, opts: Exec
     }
   } finally {
     if (timeoutTimer !== undefined) clearTimeout(timeoutTimer);
+    await runbookTracker.flush();
     sessionTelemetry?.end(lastCostUsd, lastIsError);
     await transcriptWriter.close();
   }

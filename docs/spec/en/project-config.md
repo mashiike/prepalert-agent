@@ -337,7 +337,7 @@ Environment variable expansion (`${VAR}`) is processed statically at load time, 
 
 **`sh:` specification:** A shell command is executed on each evaluation, and the standard output (trailing newline removed) is used as the body. When `sh:` is specified, dynamic variable expansion (`@var`) is not applied. Environment variable expansion (`${VAR}`) is applied to the command string itself at load time. Since health checks are called frequently, be mindful of performance.
 
-**Security note:** `sh:` directly executes the string written in `prepalert.yaml` as a shell command (arbitrary command execution). This is designed with the assumption that `prepalert.yaml` is a trusted configuration file. Since environment variable expansion (`${VAR}`) is statically embedded into the command string, there is a shell injection risk if environment variables contain malicious values. When using environment variables in `sh:`, ensure only trusted values are set.
+**Security note:** `sh:` directly executes the string written in `prepalert.yaml` as a shell command (arbitrary command execution). The command's stdout is returned as-is in the health check HTTP response body. The health check endpoint is unauthenticated (not subject to `serve.auth` even when configured) and exposed externally, so do not use commands that output sensitive information. This is designed with the assumption that `prepalert.yaml` is a trusted configuration file. Since environment variable expansion (`${VAR}`) is statically embedded into the command string, there is a shell injection risk if environment variables contain malicious values. When using environment variables in `sh:`, ensure only trusted values are set.
 
 #### `serve.healthCheck.busy`
 

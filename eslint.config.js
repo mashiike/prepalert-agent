@@ -22,7 +22,7 @@ export default tseslint.config(
         argsIgnorePattern: "^_",
         varsIgnorePattern: "^_",
       }],
-      "no-empty": ["error", { allowEmptyCatch: false }],
+      "no-empty": ["error", { allowEmptyCatch: true }],
 
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",

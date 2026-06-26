@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve, dirname, basename, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface DocsSection {
   level: number;
@@ -78,7 +79,7 @@ export function formatIndex(sections: DocsSection[]): string {
 }
 
 function getDocsRoot(): string {
-  const thisDir = dirname(new URL(import.meta.url).pathname);
+  const thisDir = dirname(fileURLToPath(import.meta.url));
   return resolve(dirname(thisDir), "docs", "spec");
 }
 

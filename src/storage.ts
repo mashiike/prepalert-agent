@@ -221,37 +221,41 @@ class S3SessionStorage implements SessionStorage {
   }
 
   async getSession(id: string): Promise<SessionMetadata | null> {
-    try {
-      const body = await this.getObject(this.sessionKey(id, "metadata.json"));
-      if (!body) return null;
-      const text = new TextDecoder().decode(body);
-      const parsed = JSON.parse(text) as { createdAt: string; status: string };
-      return {
-        id,
-        createdAt: parsed.createdAt,
-        status: parsed.status as SessionMetadata["status"],
-      };
-    } catch {
-      const partition = sessionIdToDatePartition(id);
-      const listCmd = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: `${this.prefix}${partition}/${id}/`,
-        MaxKeys: 1,
-      });
+    const body = await this.getObject(this.sessionKey(id, "metadata.json"));
+    if (body) {
       try {
-        const resp = await this.client.send(listCmd);
-        if (resp.Contents && resp.Contents.length > 0) {
+        const text = new TextDecoder().decode(body);
+        const parsed = JSON.parse(text) as { createdAt?: string; status?: string };
+        if (parsed.createdAt && parsed.status) {
           return {
             id,
-            createdAt: deriveCreatedAtFromSessionId(id),
-            status: "completed",
+            createdAt: parsed.createdAt,
+            status: parsed.status as SessionMetadata["status"],
           };
         }
       } catch {
-        return null;
+        // malformed metadata.json — fall through to prefix check
       }
+    }
+    const partition = sessionIdToDatePartition(id);
+    const listCmd = new ListObjectsV2Command({
+      Bucket: this.bucket,
+      Prefix: `${this.prefix}${partition}/${id}/`,
+      MaxKeys: 1,
+    });
+    try {
+      const resp = await this.client.send(listCmd);
+      if (resp.Contents && resp.Contents.length > 0) {
+        return {
+          id,
+          createdAt: deriveCreatedAtFromSessionId(id),
+          status: "completed",
+        };
+      }
+    } catch {
       return null;
     }
+    return null;
   }
 
   async readReport(id: string): Promise<string | null> {
@@ -283,6 +287,7 @@ class S3SessionStorage implements SessionStorage {
   }
 
   async readArtifact(id: string, name: string): Promise<Uint8Array | null> {
+    if (name.includes("..") || name.startsWith("/") || name.startsWith("\\")) return null;
     return this.getObject(this.sessionKey(id, `artifacts/${name}`));
   }
 
@@ -315,6 +320,7 @@ class S3SessionStorage implements SessionStorage {
   }
 
   async readRunbookReport(id: string, runbookId: string, toolUseId: string): Promise<string | null> {
+    if (runbookId.includes("..") || toolUseId.includes("..")) return null;
     const data = await this.getObject(this.sessionKey(id, `runbooks/${runbookId}/${toolUseId}/report.md`));
     if (!data) return null;
     return new TextDecoder().decode(data);
@@ -566,13 +572,14 @@ export class LocalSessionStorage implements SessionStorage {
           continue;
         }
         for (const toolUseId of toolUseIds) {
+          const reportPath = join(dir, "runbooks", runbookId, toolUseId, "report.md");
           try {
-            const s = await stat(join(dir, "runbooks", runbookId, toolUseId, "report.md"));
+            const s = await stat(reportPath);
             if (s.isFile()) {
               entries.push({ runbookId, toolUseId });
             }
           } catch {
-            // no report.md
+            // stat ENOENT — report does not exist, skip
           }
         }
       }
@@ -623,7 +630,7 @@ export class LocalSessionStorage implements SessionStorage {
       try {
         events.push(JSON.parse(trimmed));
       } catch {
-        // skip malformed lines
+        // malformed JSONL line, skip
       }
     }
     return events;
@@ -720,7 +727,7 @@ export class LocalSessionStorage implements SessionStorage {
         }
       }
     } catch {
-      // ignore
+      // sessionsDir does not exist yet
     }
 
     return ids;

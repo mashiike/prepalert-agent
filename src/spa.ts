@@ -279,7 +279,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
   }
 
   function statusClass(status) {
-    return 'status-' + status;
+    return 'status-' + (status || 'unknown');
   }
 
   function timeAgo(iso) {
@@ -328,7 +328,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
         '</div>' +
         '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">' +
           '<span class="badge ' + statusClass(s.status) + '">' +
-            '<span class="badge-dot"></span>' + escapeHtml(s.status.toUpperCase()) +
+            '<span class="badge-dot"></span>' + escapeHtml((s.status || 'unknown').toUpperCase()) +
           '</span>' +
         '</div>';
       row.onclick = () => { selected = s.id; tab = 'report'; history.pushState(null, '', '/sessions/' + encodeURIComponent(s.id)); render(); loadDetail(); schedulePolling(); };
@@ -357,7 +357,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
     const head = $('detail-head');
     head.innerHTML =
       '<div style="display:flex;align-items:center;gap:11px;">' +
-        '<span class="badge badge-lg ' + statusClass(s.status) + '"><span class="badge-dot"></span>' + escapeHtml(s.status.toUpperCase()) + '</span>' +
+        '<span class="badge badge-lg ' + statusClass(s.status) + '"><span class="badge-dot"></span>' + escapeHtml((s.status || 'unknown').toUpperCase()) + '</span>' +
         '<span style="font:600 16px monospace;color:var(--text);">' + escapeHtml(s.id) + '</span>' +
         '<div style="flex:1;"></div>' +
         '<button class="btn" id="btn-copy-url">\\u29C9 Copy URL</button>' +
@@ -536,7 +536,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
   }
 
   function escapeHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   function renderMarkdown(md) {

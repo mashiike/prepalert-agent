@@ -144,6 +144,8 @@ async function executeSession(
   } catch (e) {
     await writer.writeMetadata({ createdAt: new Date().toISOString(), status: "error" });
     throw e;
+  } finally {
+    await writer.close();
   }
 }
 
