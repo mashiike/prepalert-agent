@@ -9,8 +9,9 @@
   "scripts": {
     "lint": "eslint src/",
     "build": "tsc",
-    "compile": "bun build --compile --minify src/index.ts --outfile prepalert-agent",
-    "compile:lambda": "bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile bootstrap",
+    "embed": "bun run scripts/embed-assets.ts",
+    "compile": "bun run embed && bun build --compile --minify src/index.ts --outfile prepalert-agent",
+    "compile:lambda": "bun run embed && bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile bootstrap",
     "start": "bun run src/index.ts",
     "dev": "bun src/index.ts"
   },

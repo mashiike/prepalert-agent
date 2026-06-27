@@ -12,4 +12,5 @@ my-local/
 logs/
 sessions/
 THIRD_PARTY_LICENSES.md
+src/embedded-assets.ts
 

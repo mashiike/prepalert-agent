@@ -1,6 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join, resolve, dirname, basename, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename } from "node:path";
+import { EMBEDDED_DOCS } from "./embedded-assets.js";
 
 export interface DocsSection {
   level: number;
@@ -78,53 +77,23 @@ export function formatIndex(sections: DocsSection[]): string {
     .join("\n");
 }
 
-function getDocsRoot(): string {
-  if (process.env["PREPALERT_DOCS_DIR"]) {
-    return resolve(process.env["PREPALERT_DOCS_DIR"]);
-  }
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(dirname(thisDir), "docs", "spec");
-}
-
 export async function listArticles(): Promise<DocsArticle[]> {
-  const docsRoot = getDocsRoot();
-  const articles: DocsArticle[] = [];
-
-  let langs: string[];
-  try {
-    langs = (await readdir(docsRoot, { withFileTypes: true }))
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name);
-  } catch {
-    return articles;
-  }
-
-  for (const lang of langs) {
-    const langDir = join(docsRoot, lang);
-    const files = (await readdir(langDir, { withFileTypes: true }))
-      .filter((e) => e.isFile() && e.name.endsWith(".md"));
-
-    for (const file of files) {
-      const name = basename(file.name, ".md");
-      const content = await readFile(join(langDir, file.name), "utf-8");
-      const firstLine = content.split("\n").find((l) => l.startsWith("# "));
-      const description = firstLine ? firstLine.slice(2).trim() : name;
-      articles.push({ name, description, lang });
-    }
-  }
-
-  return articles;
+  return Object.entries(EMBEDDED_DOCS).map(([key, content]) => {
+    const slashIdx = key.indexOf("/");
+    const lang = slashIdx >= 0 ? key.slice(0, slashIdx) : "ja";
+    const name = basename(key, ".md");
+    const firstLine = content.split("\n").find((l) => l.startsWith("# "));
+    const description = firstLine ? firstLine.slice(2).trim() : name;
+    return { name, description, lang };
+  });
 }
 
 export async function loadArticle(name: string, lang: string = "ja"): Promise<string> {
   if (/[/\\]|\.\./.test(name) || /[/\\]|\.\./.test(lang)) {
     throw new Error(`invalid article name or lang: ${name}, ${lang}`);
   }
-  const docsRoot = getDocsRoot();
-  const filePath = join(docsRoot, lang, `${name}.md`);
-  const resolved = resolve(filePath);
-  if (!resolved.startsWith(resolve(docsRoot) + sep)) {
-    throw new Error(`invalid article path: ${name}`);
-  }
-  return readFile(filePath, "utf-8");
+  const key = `${lang}/${name}.md`;
+  const content = EMBEDDED_DOCS[key];
+  if (!content) throw new Error(`article not found: ${name} (lang: ${lang})`);
+  return content;
 }

@@ -63,12 +63,14 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Generate third-party licenses
         run: bun run scripts/generate-licenses.ts
+      - name: Embed assets
+        run: bun run scripts/embed-assets.ts
       - name: Build binary
         run: |
           bun build --compile --minify --target=${{ matrix.target }} src/index.ts --outfile prepalert-agent
       - name: Create archive
         run: |
-          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent LICENSE RELINKING.md THIRD_PARTY_LICENSES.md docs/spec/ skills/
+          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent LICENSE RELINKING.md THIRD_PARTY_LICENSES.md
       - name: Upload to release
         run: |
           TAG="${{ inputs.tag || needs.tagpr.outputs.tag }}"

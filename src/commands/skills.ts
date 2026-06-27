@@ -1,10 +1,10 @@
-import { mkdir, readdir, readFile, writeFile, rm, access } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rm, access } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
+import { EMBEDDED_SKILLS } from "../embedded-assets.js";
 
 const MANAGER_NAME = "prepalert-agent";
 const METADATA_FILE = ".prepalert-agent-skills.json";
@@ -46,21 +46,6 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function collectFiles(baseDir: string, prefix: string = ""): Promise<SkillFile[]> {
-  const files: SkillFile[] = [];
-  const entries = await readdir(join(baseDir, prefix), { withFileTypes: true });
-  for (const entry of entries) {
-    const rel = prefix ? join(prefix, entry.name) : entry.name;
-    if (entry.isDirectory()) {
-      files.push(...await collectFiles(baseDir, rel));
-    } else if (entry.isFile()) {
-      const content = await readFile(join(baseDir, rel), "utf-8");
-      files.push({ relativePath: rel, content });
-    }
-  }
-  return files;
-}
-
 function parseSkillFrontmatter(content: string): { name: string | undefined; version: string | undefined; description: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return { name: undefined, version: undefined, description: "" };
@@ -75,21 +60,22 @@ function parseSkillFrontmatter(content: string): { name: string | undefined; ver
 }
 
 export async function loadAvailableSkills(): Promise<SkillDefinition[]> {
-  const skillsRoot = process.env["PREPALERT_SKILLS_DIR"]
-    ? resolve(process.env["PREPALERT_SKILLS_DIR"])
-    : resolve(dirname(dirname(dirname(fileURLToPath(import.meta.url)))), "skills");
-  const entries = await readdir(skillsRoot, { withFileTypes: true });
+  const skillMap = new Map<string, SkillFile[]>();
+  for (const [key, content] of Object.entries(EMBEDDED_SKILLS)) {
+    const slashIdx = key.indexOf("/");
+    if (slashIdx < 0) continue;
+    const skillName = key.slice(0, slashIdx);
+    const relativePath = key.slice(slashIdx + 1);
+    if (!skillMap.has(skillName)) skillMap.set(skillName, []);
+    skillMap.get(skillName)!.push({ relativePath, content });
+  }
   const skills: SkillDefinition[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const skillDir = join(skillsRoot, entry.name);
-    const skillMdPath = join(skillDir, "SKILL.md");
-    if (!(await exists(skillMdPath))) continue;
-    const files = await collectFiles(skillDir);
+  for (const [dirName, files] of skillMap) {
     const skillMd = files.find(f => f.relativePath === "SKILL.md");
-    const frontmatter = parseSkillFrontmatter(skillMd?.content ?? "");
+    if (!skillMd) continue;
+    const frontmatter = parseSkillFrontmatter(skillMd.content);
     skills.push({
-      name: frontmatter.name ?? entry.name,
+      name: frontmatter.name ?? dirName,
       version: frontmatter.version ?? pkg.version,
       description: frontmatter.description,
       files,

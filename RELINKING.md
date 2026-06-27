@@ -14,8 +14,12 @@ any compatible version of Bun.
 git clone https://github.com/mashiike/prepalert-agent.git
 cd prepalert-agent
 bun install
-bun build --compile --minify src/index.ts --outfile prepalert-agent
+bun run compile
 ```
+
+The `compile` script embeds documentation and skill assets into the binary
+(via `scripts/embed-assets.ts`) before compiling, so the resulting
+single-file executable is fully self-contained.
 
 To use a different Bun version (and thus a different JavaScriptCore):
 
