@@ -39,6 +39,10 @@ function buildSessionTools(writer: SessionWriter) {
         try {
           safeName = validateArtifactName(args.name);
           if (encoding === "base64") {
+            const decodedSize = Buffer.byteLength(args.content, "base64");
+            if (decodedSize > 10 * 1024 * 1024) {
+              throw new Error(`artifact too large: ${decodedSize} bytes (max ${10 * 1024 * 1024})`);
+            }
             bytes = Buffer.from(args.content, "base64");
           } else {
             bytes = new TextEncoder().encode(args.content);

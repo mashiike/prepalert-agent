@@ -23,7 +23,7 @@ jobs:
     outputs:
       tag: ${{ steps.tagpr.outputs.tag }}
       pr_ref: ${{ fromJSON(steps.tagpr.outputs.pull_request).head.ref }}
-      is_release: ${{ steps.tagpr.outputs.tag != '' || github.event_name == 'workflow_dispatch' }}
+      is_release: ${{ steps.tagpr.outputs.tag != '' || (github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

@@ -154,4 +154,4 @@ program
 
 initTelemetry(version);
 
-program.parse();
+await program.parseAsync();
