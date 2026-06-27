@@ -44,6 +44,9 @@ class MockStorage implements SessionStorage {
   async writeArtifact(id: string, name: string, content: Uint8Array): Promise<void> {
     this.written.push({ method: "writeArtifact", id, args: [name, content] });
   }
+  async writeRunbookReport(id: string, runbookId: string, toolUseId: string, content: Uint8Array): Promise<void> {
+    this.written.push({ method: "writeRunbookReport", id, args: [runbookId, toolUseId, content] });
+  }
   async writeTranscript(id: string, content: Uint8Array): Promise<void> {
     this.written.push({ method: "writeTranscript", id, args: [content] });
   }
@@ -228,9 +231,10 @@ describe("SessionWriter", () => {
       const writer = new SessionWriter(dir, storage);
       await writer.writeRunbookReport("db-conn", "toolu_xyz", "# DB Report");
 
-      const storageWrite = storage.written.find(w => w.method === "writeArtifact" && (w.args[0] as string).includes("runbooks/"));
+      const storageWrite = storage.written.find(w => w.method === "writeRunbookReport");
       expect(storageWrite).toBeDefined();
-      expect(storageWrite!.args[0]).toBe("runbooks/db-conn/toolu_xyz/report.md");
+      expect(storageWrite!.args[0]).toBe("db-conn");
+      expect(storageWrite!.args[1]).toBe("toolu_xyz");
       await writer.close();
     });
   });

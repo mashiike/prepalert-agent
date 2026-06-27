@@ -53,6 +53,7 @@ export interface SessionStorage {
   writeMetadata(id: string, metadata: Omit<SessionMetadata, "id">): Promise<void>;
   writeReport(id: string, content: string): Promise<void>;
   writeArtifact(id: string, name: string, content: Uint8Array): Promise<void>;
+  writeRunbookReport(id: string, runbookId: string, toolUseId: string, content: Uint8Array): Promise<void>;
   writeTranscript(id: string, content: Uint8Array): Promise<void>;
 }
 
@@ -401,6 +402,10 @@ class S3SessionStorage implements SessionStorage {
     await this.putObject(this.sessionKey(id, `artifacts/${name}`), content);
   }
 
+  async writeRunbookReport(id: string, runbookId: string, toolUseId: string, content: Uint8Array): Promise<void> {
+    await this.putObject(this.sessionKey(id, `runbooks/${runbookId}/${toolUseId}/report.md`), content, "text/markdown");
+  }
+
   async writeTranscript(id: string, content: Uint8Array): Promise<void> {
     await this.putObject(this.sessionKey(id, "transcript.jsonl"), content, "application/x-ndjson");
   }
@@ -480,8 +485,11 @@ export class LocalSessionStorage implements SessionStorage {
     try {
       const metaPath = join(sessionDir, "metadata.json");
       const content = await readFile(metaPath, "utf-8");
-      const parsed = JSON.parse(content) as { createdAt: string; status: string };
-      return { id, createdAt: parsed.createdAt, status: parsed.status as SessionMetadata["status"] };
+      const parsed = JSON.parse(content) as { createdAt?: string; status?: string };
+      if (parsed.createdAt && parsed.status) {
+        return { id, createdAt: parsed.createdAt, status: parsed.status as SessionMetadata["status"] };
+      }
+      return { id, createdAt: deriveCreatedAtFromSessionId(id), status: "completed" };
     } catch {
       try {
         await stat(sessionDir);
@@ -670,6 +678,13 @@ export class LocalSessionStorage implements SessionStorage {
     const artifactsDir = join(sessionDir, "artifacts");
     await mkdir(artifactsDir, { recursive: true });
     await writeFile(join(artifactsDir, name), content);
+  }
+
+  async writeRunbookReport(id: string, runbookId: string, toolUseId: string, content: Uint8Array): Promise<void> {
+    const sessionDir = this.resolveSessionDir(id);
+    const reportDir = join(sessionDir, "runbooks", runbookId, toolUseId);
+    await mkdir(reportDir, { recursive: true });
+    await writeFile(join(reportDir, "report.md"), content);
   }
 
   async writeTranscript(id: string, content: Uint8Array): Promise<void> {

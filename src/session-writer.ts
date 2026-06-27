@@ -94,8 +94,7 @@ export class SessionWriter implements TranscriptWriter {
     const localPath = join(reportDir, "report.md");
     writeFileSync(localPath, content);
     if (this.storage) {
-      const storagePath = `runbooks/${safeRunbookId}/${safeToolUseId}/report.md`;
-      await this.storage.writeArtifact(this.sessionId, storagePath, new TextEncoder().encode(content));
+      await this.storage.writeRunbookReport(this.sessionId, safeRunbookId, safeToolUseId, new TextEncoder().encode(content));
     }
   }
 

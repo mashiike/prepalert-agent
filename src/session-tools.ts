@@ -46,6 +46,9 @@ function buildSessionTools(writer: SessionWriter) {
             bytes = Buffer.from(args.content, "base64");
           } else {
             bytes = new TextEncoder().encode(args.content);
+            if (bytes.byteLength > 10 * 1024 * 1024) {
+              throw new Error(`artifact too large: ${bytes.byteLength} bytes (max ${10 * 1024 * 1024})`);
+            }
           }
           await writer.writeArtifact(safeName, bytes);
         } catch (e) {

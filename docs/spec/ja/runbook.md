@@ -91,7 +91,7 @@ disallowedTools: <string[]>       # 禁止ツール (optional)
 - **型:** `number`
 - **必須:** No
 - **デフォルト:** `prepalert.yaml` の `costLimit`
-- **説明:** この runbook 実行時のコスト上限（USD）。プロジェクト全体の `costLimit` とは別に、runbook 単位でコストを制御できる。
+- **説明:** この runbook 実行時のコスト上限（USD）。現在この設定は **未実装**（Claude Agent SDK の AgentDefinition にコスト制御フィールドがないため）。プロジェクト全体の `costLimit`（`prepalert.yaml`）は有効。将来の SDK 対応に備えてフィールドは予約されている。
 
 ### `allowedTools`
 

@@ -91,7 +91,7 @@ Body: Instructions for the Agent's investigation procedures. Written in Markdown
 - **Type:** `number`
 - **Required:** No
 - **Default:** `costLimit` from `prepalert.yaml`
-- **Description:** Cost limit in USD for this runbook's execution. Allows per-runbook cost control independent of the project-wide `costLimit`.
+- **Description:** Cost limit in USD for this runbook's execution. Currently **not implemented** (Claude Agent SDK's AgentDefinition does not have a cost control field). The project-wide `costLimit` (in `prepalert.yaml`) is effective. The field is reserved for future SDK support.
 
 ### `allowedTools`
 
