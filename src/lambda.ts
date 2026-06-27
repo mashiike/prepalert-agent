@@ -67,12 +67,23 @@ export async function responseToAPIGatewayV2(response: Response): Promise<APIGat
       headers[key] = value;
     }
   });
-  const body = await response.text();
+  const contentType = response.headers.get("content-type") ?? "";
+  const isText = contentType.startsWith("text/") || contentType.includes("json") || contentType.includes("xml");
+  let body: string;
+  let isBase64Encoded: boolean;
+  if (isText) {
+    body = await response.text();
+    isBase64Encoded = false;
+  } else {
+    const buf = await response.arrayBuffer();
+    body = Buffer.from(buf).toString("base64");
+    isBase64Encoded = true;
+  }
   const result: APIGatewayProxyStructuredResultV2 = {
     statusCode: response.status,
     headers,
     body,
-    isBase64Encoded: false,
+    isBase64Encoded,
   };
   if (cookies.length > 0) result.cookies = cookies;
   return result;

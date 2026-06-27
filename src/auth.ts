@@ -76,6 +76,24 @@ function verifyBasicAuth(request: Request, config: AuthBasic): AuthResult {
 }
 
 const jwksCache = new Map<string, ReturnType<typeof jose.createRemoteJWKSet>>();
+const jwksUriCache = new Map<string, string>();
+
+async function resolveJwksUri(config: AuthOidc): Promise<string> {
+  if (config.jwksUri) return config.jwksUri;
+  const cached = jwksUriCache.get(config.issuer);
+  if (cached) return cached;
+  const discoveryUrl = `${config.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`;
+  const resp = await fetch(discoveryUrl);
+  if (!resp.ok) {
+    throw new Error(`OIDC discovery failed: ${discoveryUrl} returned ${resp.status}`);
+  }
+  const doc = await resp.json() as { jwks_uri?: string };
+  if (typeof doc.jwks_uri !== "string") {
+    throw new Error(`OIDC discovery: jwks_uri not found in ${discoveryUrl}`);
+  }
+  jwksUriCache.set(config.issuer, doc.jwks_uri);
+  return doc.jwks_uri;
+}
 
 async function verifyOidcAuth(
   request: Request,
@@ -89,7 +107,7 @@ async function verifyOidcAuth(
   const token = authHeader.slice(7);
 
   try {
-    const jwksUrlStr = config.jwksUri ?? `${config.issuer}/.well-known/jwks.json`;
+    const jwksUrlStr = await resolveJwksUri(config);
     let JWKS = jwksCache.get(jwksUrlStr);
     if (!JWKS) {
       JWKS = jose.createRemoteJWKSet(new URL(jwksUrlStr));
