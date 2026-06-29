@@ -261,6 +261,13 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
           { path: wh.path },
         );
       }
+      const effective = dd ?? projectTimeout;
+      if (effective && parseDuration(effective) > 1800) {
+        logger?.warn(
+          `dispatch deadline on "${wh.path}" exceeds Cloud Tasks maximum (30m); it will be clamped to 1800s`,
+          { path: wh.path },
+        );
+      }
     }
   }
 }

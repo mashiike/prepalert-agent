@@ -148,6 +148,20 @@ describe("apiGatewayV2EventToRequest", () => {
     expect(await request.text()).toBe('{"alert":"fired"}');
   });
 
+  test("restores cookies array into Cookie header", () => {
+    const event = makeAPIGatewayV2Event({ cookies: ["a=1", "b=2"] });
+    const request = apiGatewayV2EventToRequest(event);
+
+    expect(request.headers.get("cookie")).toBe("a=1; b=2");
+  });
+
+  test("omits Cookie header when no cookies present", () => {
+    const event = makeAPIGatewayV2Event();
+    const request = apiGatewayV2EventToRequest(event);
+
+    expect(request.headers.get("cookie")).toBeNull();
+  });
+
   test("decodes base64 body when isBase64Encoded is true", async () => {
     const originalBody = "hello binary world";
     const base64Body = Buffer.from(originalBody).toString("base64");

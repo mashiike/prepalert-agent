@@ -75,17 +75,21 @@ async function resolveServiceAccountEmail(
  * Resolve the dispatch deadline in seconds.
  * Priority: dispatch.dispatchDeadline > project timeout > undefined (warn emitted at startup validation)
  */
+const CLOUD_TASKS_MIN_DEADLINE = 15;
+const CLOUD_TASKS_MAX_DEADLINE = 1800;
+
 export function resolveDispatchDeadlineSeconds(
   dispatchDeadline: string | undefined,
   projectTimeout: string | undefined,
 ): number | undefined {
+  let seconds: number | undefined;
   if (dispatchDeadline) {
-    return Math.ceil(parseDuration(dispatchDeadline));
+    seconds = Math.ceil(parseDuration(dispatchDeadline));
+  } else if (projectTimeout) {
+    seconds = Math.ceil(parseDuration(projectTimeout));
   }
-  if (projectTimeout) {
-    return Math.ceil(parseDuration(projectTimeout));
-  }
-  return undefined;
+  if (seconds === undefined) return undefined;
+  return Math.max(CLOUD_TASKS_MIN_DEADLINE, Math.min(seconds, CLOUD_TASKS_MAX_DEADLINE));
 }
 
 export interface CreateTaskParams {

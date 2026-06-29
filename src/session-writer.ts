@@ -113,6 +113,9 @@ export class SessionWriter implements TranscriptWriter {
         const content = readFileSync(this.transcriptPath);
         await this.storage.writeTranscript(this.sessionId, new Uint8Array(content));
       } catch (e) {
+        if (e instanceof Error && "code" in e && (e as NodeJS.ErrnoException).code === "ENOENT") {
+          return;
+        }
         const msg = e instanceof Error ? e.message : String(e);
         this.logger?.warn("failed to upload transcript to storage", { sessionId: this.sessionId, error: msg });
       }

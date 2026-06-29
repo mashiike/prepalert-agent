@@ -129,7 +129,7 @@ When not set, it is automatically inferred from request headers (in order: `X-Fo
 
 ## Security
 
-**Important:** `/api/*` endpoints and the SPA currently have no authentication. Since session data may contain incident investigation logs (hostnames, internal IPs, stack traces, etc.), protect them at the network layer (VPC, IAP, ALB authentication, etc.) or introduce SSO authentication in the future.
+**Important:** Configuring `serve.auth` (OIDC) applies authentication to `/api/*` endpoints and the SPA (see [auth.md](./auth.md)). When unset, there is no authentication. Since session data may contain incident investigation logs (hostnames, internal IPs, stack traces, etc.), configure `serve.auth` or protect them at the network layer (VPC, IAP, ALB authentication, etc.).
 
 - JWT expiration defaults to 15 minutes
 - The session ID is embedded in the JWT; the session ID cannot be guessed from the URL

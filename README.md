@@ -83,9 +83,12 @@ my-project/
 │       └── 5xx-rate-over-limit.md
 ├── logs/                   # Operation logs (auto-generated, add to .gitignore)
 │   └── {timestamp}-{id}.jsonl
-└── sessions/               # Session transcripts (auto-generated, add to .gitignore)
-    └── {session-id}/
-        └── transcript.jsonl
+└── sessions/               # Session records (auto-generated, add to .gitignore)
+    └── YYYY/MM/DD/{session-id}/   # date-partitioned
+        ├── metadata.json
+        ├── transcript.jsonl
+        ├── report.md
+        └── artifacts/
 ```
 
 ### `prepalert.yaml`

@@ -481,7 +481,7 @@ Cloud Tasks がタスク実行時に付与する OIDC トークンの設定。`t
 
 - **型:** `string`
 - **必須:** Yes
-- **説明:** SQS キューの URL。例: `https://sqs.ap-northeast-1.amazonaws.com/123456789012/my-queue`
+- **説明:** SQS キューの URL。標準キューのみ対応（FIFO キューは非対応）。例: `https://sqs.ap-northeast-1.amazonaws.com/123456789012/my-queue`
 
 #### `serve.webhooks[].dispatch.targetPath` (aws-sqs)
 

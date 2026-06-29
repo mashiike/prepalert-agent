@@ -105,6 +105,20 @@ describe("resolveDispatchDeadlineSeconds", () => {
     const result = resolveDispatchDeadlineSeconds(undefined, undefined);
     expect(result).toBeUndefined();
   });
+
+  test("clamps to Cloud Tasks max (1800s) when over 30m", () => {
+    expect(resolveDispatchDeadlineSeconds("60m", undefined)).toBe(1800);
+    expect(resolveDispatchDeadlineSeconds(undefined, "1h")).toBe(1800);
+  });
+
+  test("clamps to Cloud Tasks min (15s) when under 15s", () => {
+    expect(resolveDispatchDeadlineSeconds("5s", undefined)).toBe(15);
+  });
+
+  test("passes through values within range", () => {
+    expect(resolveDispatchDeadlineSeconds("30m", undefined)).toBe(1800);
+    expect(resolveDispatchDeadlineSeconds("20s", undefined)).toBe(20);
+  });
 });
 
 function makeFakeCloudTasksClient() {

@@ -204,6 +204,10 @@ export async function handleCallback(request: Request, config: OidcConfig): Prom
     return new Response(`ID token verification failed: ${msg}`, { status: 403 });
   }
 
+  if (idPayload["nonce"] !== statePayload["n"]) {
+    return new Response("ID token nonce mismatch", { status: 403 });
+  }
+
   if (idPayload["email_verified"] === false) {
     return new Response("Email not verified", { status: 403 });
   }

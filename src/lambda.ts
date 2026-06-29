@@ -43,6 +43,9 @@ export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Reque
       }
     }
   }
+  if (event.cookies && event.cookies.length > 0) {
+    headers.set("cookie", event.cookies.join("; "));
+  }
 
   const method = event.requestContext.http.method;
   let body: string | Buffer | undefined;

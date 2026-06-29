@@ -481,7 +481,7 @@ When `type: aws-sqs`, the request is converted to an API Gateway v2 event format
 
 - **Type:** `string`
 - **Required:** Yes
-- **Description:** The SQS queue URL. Example: `https://sqs.ap-northeast-1.amazonaws.com/123456789012/my-queue`
+- **Description:** The SQS queue URL. Standard queues only (FIFO queues are not supported). Example: `https://sqs.ap-northeast-1.amazonaws.com/123456789012/my-queue`
 
 #### `serve.webhooks[].dispatch.targetPath` (aws-sqs)
 
