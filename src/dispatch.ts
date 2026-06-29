@@ -1,4 +1,4 @@
-import { CloudTasksClient, protos } from "@google-cloud/tasks";
+import type { CloudTasksClient, protos } from "@google-cloud/tasks";
 import { parseDuration } from "./config.js";
 import type { CloudTasksDispatchConfig } from "./project.js";
 import type { Logger } from "./logger.js";
@@ -14,8 +14,9 @@ const METADATA_SA_URL =
 
 let cachedClient: CloudTasksClient | undefined;
 
-function getClient(): CloudTasksClient {
+async function getClient(): Promise<CloudTasksClient> {
   if (!cachedClient) {
+    const { CloudTasksClient } = await import("@google-cloud/tasks");
     cachedClient = new CloudTasksClient();
   }
   return cachedClient;
@@ -106,7 +107,7 @@ export interface CreateTaskParams {
  */
 export async function createCloudTask(params: CreateTaskParams): Promise<void> {
   const { config, request, body, projectTimeout, logger } = params;
-  const client = params.client ?? getClient();
+  const client = params.client ?? (await getClient());
   const baseUrl = resolveBaseUrl(config, request);
   const targetPath = config.targetPath ?? new URL(request.url).pathname;
   const url = `${baseUrl}${targetPath}`;
