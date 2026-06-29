@@ -104,6 +104,18 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(event.requestContext.http.sourceIp).toBe("127.0.0.1");
   });
 
+  test("falls back to 127.0.0.1 when x-forwarded-for is empty or whitespace", () => {
+    const request = makeRequest("http://localhost:8080/webhook/test", {
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "   ",
+      },
+    });
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+
+    expect(event.requestContext.http.sourceIp).toBe("127.0.0.1");
+  });
+
   test("generates unique requestId", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
     const event1 = requestToAPIGatewayV2Event(request, "", "https://example.com");

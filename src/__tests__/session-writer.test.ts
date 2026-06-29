@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { SessionWriter } from "../session-writer.js";
@@ -94,6 +94,25 @@ describe("SessionWriter", () => {
     const transcriptPath = join(writer.sessionDir, "transcript.jsonl");
     const lines = readFileSync(transcriptPath, "utf-8").trim().split("\n");
     expect(lines.length).toBe(1);
+  });
+
+  test("retains buffered events when a flush fails and writes them on the next successful flush", async () => {
+    const dir = makeTempDir();
+    const writer = new SessionWriter(dir, null, { flushThreshold: 1 });
+    const transcriptPath = join(writer.sessionDir, "transcript.jsonl");
+
+    mkdirSync(transcriptPath);
+    writer.write({ timestamp: "t1", type: "user" });
+
+    rmSync(transcriptPath, { recursive: true });
+    writer.write({ timestamp: "t2", type: "assistant" });
+
+    const lines = readFileSync(transcriptPath, "utf-8").trim().split("\n");
+    expect(lines.length).toBe(2);
+    expect(lines[0]).toContain("t1");
+    expect(lines[1]).toContain("t2");
+
+    await writer.close();
   });
 
   test("write after close is silently ignored", async () => {

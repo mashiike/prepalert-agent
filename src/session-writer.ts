@@ -124,16 +124,27 @@ export class SessionWriter implements TranscriptWriter {
 
   private flushBuffer(): void {
     if (this.buffer.length === 0) return;
-    const data = this.buffer.join("\n") + "\n";
+    const lines = this.buffer;
     this.buffer = [];
     try {
-      appendFileSync(this.transcriptPath, data);
+      appendFileSync(this.transcriptPath, lines.join("\n") + "\n");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger?.warn("transcript write failed", { path: this.transcriptPath, error: msg });
+      this.buffer = [...lines, ...this.buffer];
+      if (this.buffer.length > MAX_BUFFER_LINES) {
+        const dropped = this.buffer.length - MAX_BUFFER_LINES;
+        this.buffer = this.buffer.slice(dropped);
+        this.logger?.warn("transcript buffer overflow, dropping oldest events", {
+          path: this.transcriptPath,
+          dropped,
+        });
+      }
     }
   }
 }
+
+const MAX_BUFFER_LINES = 10_000;
 
 const MAX_ARTIFACT_SIZE = 10 * 1024 * 1024;
 
