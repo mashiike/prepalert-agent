@@ -1,5 +1,5 @@
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
-import { DISPATCHED_HEADER } from "./dispatch.js";
+import { DISPATCH_TOKEN_HEADER } from "./dispatch-token.js";
 import type { APIGatewayProxyEventV2 } from "./lambda.js";
 import type { SqsDispatchConfig } from "./project.js";
 import type { Logger } from "./logger.js";
@@ -23,6 +23,7 @@ export function requestToAPIGatewayV2Event(
   request: Request,
   body: string,
   baseUrl: string,
+  dispatchToken: string,
   targetPath?: string | undefined,
 ): APIGatewayProxyEventV2 {
   const url = new URL(request.url);
@@ -31,7 +32,7 @@ export function requestToAPIGatewayV2Event(
   request.headers.forEach((value, key) => {
     headers[key] = value;
   });
-  headers[DISPATCHED_HEADER] = "true";
+  headers[DISPATCH_TOKEN_HEADER] = dispatchToken;
 
   const hostname = new URL(baseUrl).hostname;
 
@@ -68,18 +69,19 @@ export interface SendToSqsParams {
   config: SqsDispatchConfig;
   request: Request;
   body: string;
+  dispatchToken: string;
   logger: Logger;
   client?: { send: SQSClient["send"] } | undefined;
 }
 
 export async function sendToSqs(params: SendToSqsParams): Promise<void> {
-  const { config, request, body, logger } = params;
+  const { config, request, body, dispatchToken, logger } = params;
   const client = params.client ?? getClient();
 
   const baseUrl = config.baseUrl
     ?? `${request.headers.get("x-forwarded-proto") ?? "https"}://${request.headers.get("host") ?? "localhost"}`;
 
-  const event = requestToAPIGatewayV2Event(request, body, baseUrl, config.targetPath);
+  const event = requestToAPIGatewayV2Event(request, body, baseUrl, dispatchToken, config.targetPath);
   const messageBody = JSON.stringify(event);
 
   const messageBytes = new TextEncoder().encode(messageBody).byteLength;

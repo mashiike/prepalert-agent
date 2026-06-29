@@ -5,7 +5,8 @@ import type { AuthConfig } from "../auth.js";
 import { verifyAuth } from "../auth.js";
 import { executePrompt } from "./execute.js";
 import { isEcsEnvironment, enableTaskProtection, disableTaskProtection } from "../ecs.js";
-import { isDispatchedRequest, createCloudTask } from "../dispatch.js";
+import { createCloudTask, resolveDispatchDeadlineSeconds } from "../dispatch.js";
+import { generateDispatchToken, verifyDispatchToken, DISPATCH_TOKEN_HEADER } from "../dispatch-token.js";
 import type { Logger } from "../logger.js";
 import { resolveHealthCheckConfig, buildHealthCheckResponse } from "../health.js";
 import { createSessionStorage, LocalSessionStorage, type SessionStorage } from "../storage.js";
@@ -175,19 +176,28 @@ async function executeAsync(
   }
 }
 
+const DISPATCH_TOKEN_FALLBACK_TTL_SECONDS = 900;
+
 async function dispatchRequest(
   config: DispatchConfig,
   request: Request,
   body: string,
   projectTimeout: string | undefined,
+  dispatchSecret: Uint8Array,
   logger: Logger,
 ): Promise<void> {
+  const deadline = config.type === "cloud-tasks"
+    ? resolveDispatchDeadlineSeconds(config.dispatchDeadline, projectTimeout)
+    : resolveDispatchDeadlineSeconds(undefined, projectTimeout);
+  const ttl = deadline ?? DISPATCH_TOKEN_FALLBACK_TTL_SECONDS;
+  const dispatchToken = await generateDispatchToken(dispatchSecret, ttl);
+
   switch (config.type) {
     case "cloud-tasks":
-      await createCloudTask({ config, request, body, projectTimeout, logger });
+      await createCloudTask({ config, request, body, projectTimeout, dispatchToken, logger });
       break;
     case "aws-sqs":
-      await sendToSqs({ config, request, body, logger });
+      await sendToSqs({ config, request, body, dispatchToken, logger });
       break;
   }
 }
@@ -231,26 +241,6 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
       if (target.dispatch) {
         throw new Error(`dispatch.targetPath "${targetPath}" on "${wh.path}" must not reference a webhook with dispatch (no chaining)`);
       }
-      if (wh.dispatch.type === "cloud-tasks" && target.authType === "none") {
-        logger?.warn(
-          `dispatch target "${targetPath}" uses authType "none"; Cloud Tasks callback headers (X-CloudTasks-*) are not trustworthy on Cloud Run — use authType "oidc" for secure dispatch`,
-          { dispatchFrom: wh.path, targetPath },
-        );
-      }
-    } else {
-      if (wh.dispatch.type === "cloud-tasks") {
-        if (wh.authType === "none") {
-          logger?.warn(
-            `single-path dispatch on "${wh.path}" uses authType "none"; Cloud Tasks callback headers are not trustworthy on Cloud Run — use authType "oidc" for secure dispatch`,
-            { path: wh.path },
-          );
-        }
-        if (wh.authType === "basic") {
-          throw new Error(
-            `single-path dispatch on "${wh.path}" uses authType "basic", but Cloud Tasks callbacks use OIDC tokens — use the two-endpoint pattern with separate authTypes, or switch to authType "oidc"`,
-          );
-        }
-      }
     }
 
     if (wh.dispatch.type === "cloud-tasks") {
@@ -277,7 +267,7 @@ export interface ServeCommandOptions {
   sessionsDir: string;
 }
 
-export type DispatchFn = (config: DispatchConfig, request: Request, body: string, projectTimeout: string | undefined, logger: Logger) => Promise<void>;
+export type DispatchFn = (config: DispatchConfig, request: Request, body: string, projectTimeout: string | undefined, dispatchSecret: Uint8Array, logger: Logger) => Promise<void>;
 
 export interface ServeContext {
   project: Project;
@@ -295,8 +285,21 @@ export interface ServeContext {
   dispatch?: DispatchFn | undefined;
 }
 
+function resolveSessionsDir(configured: string, logger: Logger): string {
+  if (isLambdaEnvironment() && configured !== "/tmp" && !configured.startsWith("/tmp/")) {
+    const fallback = "/tmp/prepalert-sessions";
+    logger.warn(
+      `sessionsDir "${configured}" is not under /tmp; on Lambda the filesystem is read-only except /tmp, so falling back to "${fallback}". Set sessionsDir under /tmp in prepalert.yaml to silence this warning.`,
+      { configured, fallback },
+    );
+    return fallback;
+  }
+  return configured;
+}
+
 function initializeServeContext(project: Project, opts: ServeCommandOptions): ServeContext {
-  const { logger, sessionsDir } = opts;
+  const { logger } = opts;
+  const sessionsDir = resolveSessionsDir(opts.sessionsDir, logger);
   const serve = project.config.serve;
   const webhooks = serve?.webhooks ?? [];
 
@@ -459,22 +462,27 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
       return new Response("Method Not Allowed", { status: 405 });
     }
 
-    const authConfig = toAuthConfig(webhook);
-    const authResult = await verifyAuth(request, authConfig);
-    if (!authResult.ok) {
-      logger.warn("auth failed", { path: url.pathname, status: authResult.status, message: authResult.message });
-      return new Response(authResult.message, authResult.headers
-        ? { status: authResult.status, headers: authResult.headers }
-        : { status: authResult.status },
-      );
+    const dispatchTokenValue = request.headers.get(DISPATCH_TOKEN_HEADER);
+    const dispatched = dispatchTokenValue !== null && await verifyDispatchToken(dispatchTokenValue, exportSecret);
+
+    if (!dispatched) {
+      const authConfig = toAuthConfig(webhook);
+      const authResult = await verifyAuth(request, authConfig);
+      if (!authResult.ok) {
+        logger.warn("auth failed", { path: url.pathname, status: authResult.status, message: authResult.message });
+        return new Response(authResult.message, authResult.headers
+          ? { status: authResult.status, headers: authResult.headers }
+          : { status: authResult.status },
+        );
+      }
     }
 
     const body = await request.text();
     stats.totalRequests++;
 
-    if (webhook.dispatch && !isDispatchedRequest(request)) {
+    if (webhook.dispatch && !dispatched) {
       try {
-        await doDispatch(webhook.dispatch, request, body, project.config.timeout, logger);
+        await doDispatch(webhook.dispatch, request, body, project.config.timeout, exportSecret, logger);
         logger.info("request dispatched", { method: request.method, path: url.pathname, type: webhook.dispatch.type, status: 202, duration_ms: Date.now() - start });
         return new Response("Accepted", { status: 202 });
       } catch (err) {

@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { isDispatchedRequest, resolveBaseUrl, resolveDispatchDeadlineSeconds, createCloudTask, DISPATCHED_HEADER } from "../dispatch.js";
+import { resolveBaseUrl, resolveDispatchDeadlineSeconds, createCloudTask } from "../dispatch.js";
+import { DISPATCH_TOKEN_HEADER } from "../dispatch-token.js";
 import type { CloudTasksDispatchConfig } from "../project.js";
 
 function makeConfig(overrides: Partial<CloudTasksDispatchConfig> = {}): CloudTasksDispatchConfig {
@@ -13,35 +14,6 @@ function makeConfig(overrides: Partial<CloudTasksDispatchConfig> = {}): CloudTas
 function makeRequest(url: string, headers: Record<string, string> = {}): Request {
   return new Request(url, { method: "POST", headers });
 }
-
-describe("isDispatchedRequest", () => {
-  test("returns true when X-CloudTasks-TaskName header is present", () => {
-    const request = makeRequest("http://localhost:8080/webhook", {
-      "X-CloudTasks-TaskName": "task-123",
-    });
-    expect(isDispatchedRequest(request)).toBe(true);
-  });
-
-  test("returns true when X-Prepalert-Dispatched header is present", () => {
-    const request = makeRequest("http://localhost:8080/webhook", {
-      "X-Prepalert-Dispatched": "true",
-    });
-    expect(isDispatchedRequest(request)).toBe(true);
-  });
-
-  test("returns true when both headers are present", () => {
-    const request = makeRequest("http://localhost:8080/webhook", {
-      "X-CloudTasks-TaskName": "task-123",
-      "X-Prepalert-Dispatched": "true",
-    });
-    expect(isDispatchedRequest(request)).toBe(true);
-  });
-
-  test("returns false when no dispatch headers are present", () => {
-    const request = makeRequest("http://localhost:8080/webhook");
-    expect(isDispatchedRequest(request)).toBe(false);
-  });
-});
 
 describe("resolveBaseUrl", () => {
   test("uses explicit baseUrl from config", () => {
@@ -133,19 +105,19 @@ function makeFakeCloudTasksClient() {
 }
 
 describe("createCloudTask", () => {
-  test("includes x-prepalert-dispatched header in task http request", async () => {
+  test("includes the dispatch token header in task http request", async () => {
     const { client, calls } = makeFakeCloudTasksClient();
     const config = makeConfig({ baseUrl: "https://my-service.run.app" });
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
 
     await createCloudTask({
       config, request, body: '{"alert":"test"}', projectTimeout: "15m",
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     expect(calls.length).toBe(1);
     const task = (calls[0] as { task: { httpRequest: { headers: Record<string, string> } } }).task;
-    expect(task.httpRequest.headers[DISPATCHED_HEADER]).toBe("true");
+    expect(task.httpRequest.headers[DISPATCH_TOKEN_HEADER]).toBe("tok");
   });
 
   test("sets correct target URL from config baseUrl and request path", async () => {
@@ -155,7 +127,7 @@ describe("createCloudTask", () => {
 
     await createCloudTask({
       config, request, body: '{"alert":"test"}', projectTimeout: undefined,
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     const task = (calls[0] as { task: { httpRequest: { url: string } } }).task;
@@ -169,7 +141,7 @@ describe("createCloudTask", () => {
 
     await createCloudTask({
       config, request, body: '{"alert":"test"}', projectTimeout: undefined,
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     const task = (calls[0] as { task: { httpRequest: { url: string } } }).task;
@@ -183,7 +155,7 @@ describe("createCloudTask", () => {
 
     await createCloudTask({
       config, request, body: "{}", projectTimeout: undefined,
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     const task = (calls[0] as { task: { httpRequest: { headers: Record<string, string> } } }).task;
@@ -197,7 +169,7 @@ describe("createCloudTask", () => {
 
     await createCloudTask({
       config, request, body: "{}", projectTimeout: undefined,
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     const task = (calls[0] as { task: { dispatchDeadline: { seconds: number } } }).task;
@@ -211,7 +183,7 @@ describe("createCloudTask", () => {
 
     await createCloudTask({
       config, request, body: "{}", projectTimeout: undefined,
-      logger: noopLogger as never, client,
+      dispatchToken: "tok", logger: noopLogger as never, client,
     });
 
     const task = (calls[0] as { task: { dispatchDeadline?: unknown } }).task;

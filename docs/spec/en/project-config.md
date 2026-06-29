@@ -149,6 +149,7 @@ serve:                                # serve command settings (optional)
 - **Required:** No
 - **Default:** None (when unset, `sessionsDir` serves as the persistent destination)
 - **Description:** Persistent storage URL. Format: `s3://bucket/prefix/` or `gs://bucket/prefix/`. When configured, session data (report, artifact, metadata) is written immediately, and the transcript is uploaded upon session completion. The API reads from this location.
+- **Note when using GCS (`gs://`):** Internally accessed via the S3-compatible XML API (endpoint `https://storage.googleapis.com`), using the AWS SDK credential chain for SigV4 signing. Therefore you must provide a [GCS interoperability HMAC key](https://cloud.google.com/storage/docs/authentication/hmackeys) as AWS-style credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`). GCP native authentication (Application Default Credentials / service account JSON) does not work.
 
 ### `storageOptions`
 
@@ -414,7 +415,7 @@ List of webhook endpoints accepted by the `serve` command.
 
 Forwarding settings to an external queue service. When configured, this webhook enqueues the received request to the queue and immediately returns a response. The actual Agent processing is executed when the queue service makes an HTTP call to `targetPath` (or to itself).
 
-**Security Note:** In Cloud Run environments, headers added by Cloud Tasks (`X-CloudTasks-*`) can be spoofed from external sources (unlike App Engine, automatic header replacement is not performed). It is strongly recommended to set `authType: oidc` on the webhook that is the dispatch target and authenticate using Cloud Tasks' OIDC token (configured via `dispatch.oidc`). A warning is output at startup for targets with `authType: none`.
+**Authentication (trusting dispatched callbacks):** At dispatch time, prepalert-agent issues a short-lived JWT signed with its own secret and places it in the `prepalert-dispatch-token` header. On callback, this JWT is verified; if valid, the request is treated as a legitimate dispatch and the original webhook's `authType` check is skipped. This avoids relying on spoofable headers like `X-CloudTasks-*` and prevents auth bypass via header forgery. The signing key is `serve.exportSecret` (shared with audience separation `prepalert:dispatch`), so **when using dispatch you must set `serve.exportSecret` explicitly so it can be shared across instances** (when unset it is auto-generated per startup and verification may fail on restart / scale-out). The token expiry follows `dispatchDeadline` (project `timeout` for SQS; 900 seconds when both are unset).
 
 #### `serve.webhooks[].dispatch.type`
 
@@ -437,9 +438,9 @@ Forwarding settings to an external queue service. When configured, this webhook 
 
 **Two-stage endpoint pattern:** Specify a different webhook's path as `targetPath`. The dispatch endpoint and processing endpoint are clearly separated.
 
-**Single-path pattern:** Omit `targetPath`. Callbacks from Cloud Tasks are identified by the `X-Prepalert-Dispatched` header (added at task creation time) and the `X-CloudTasks-TaskName` header (added by Cloud Tasks). When either header is present, dispatch is skipped and processing occurs directly. `X-Prepalert-Dispatched` is a custom header that prepalert-agent always adds at task creation time, preventing infinite loops even if the Cloud Tasks header is missing for some reason.
+**Single-path pattern:** Omit `targetPath`. Callbacks are identified by verifying the dispatch JWT in the `prepalert-dispatch-token` header; when valid, dispatch is skipped and processing occurs directly. This also prevents infinite loops.
 
-In the single-path pattern, since only one authType can be configured, combining it with `authType: basic` results in an error (Cloud Tasks does not have basic auth credentials, so authentication fails during callback). To accept basic auth from external sources and OIDC from Cloud Tasks, use the two-stage endpoint pattern.
+Because the dispatch JWT trust decision is independent of the original webhook's `authType`, you can freely choose `authType` even in the single-path pattern (`basic` is fine). Dispatched callbacks skip the authType check, so a single-path webhook can accept `basic` from external sources while receiving internal dispatches via the JWT.
 
 #### `serve.webhooks[].dispatch.baseUrl`
 
@@ -457,7 +458,7 @@ In the single-path pattern, since only one authType can be configured, combining
 
 #### `serve.webhooks[].dispatch.oidc`
 
-OIDC token settings that Cloud Tasks attaches when executing tasks. Required when the `targetPath` destination (or itself in the single-path pattern) requires `authType: oidc`.
+OIDC token settings that Cloud Tasks attaches when executing tasks. This is used for **Cloud Run IAM invocation authentication** (the network-level auth that lets Cloud Tasks invoke a private "authentication required" Cloud Run service). The application-level dispatch trust decision is handled by the dispatch JWT described above, so `dispatch.oidc` only needs to be set when using a private Cloud Run service. When set, Cloud Tasks attaches an ID token in the `Authorization` header (no conflict, since the dispatch JWT uses the separate `prepalert-dispatch-token` header).
 
 #### `serve.webhooks[].dispatch.oidc.serviceAccountEmail`
 
@@ -578,7 +579,7 @@ serve:
   webhooks:
     # A single path handles both receiving and processing
     # - Normal request -> enqueue to Cloud Tasks -> 202
-    # - X-CloudTasks-TaskName header present -> synchronous processing -> 200
+    # - Valid dispatch JWT (prepalert-dispatch-token) present -> synchronous processing -> 200
     - path: /webhook/mackerel
       authType: oidc
       issuer: https://accounts.google.com

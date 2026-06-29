@@ -12,7 +12,7 @@ function makeRequest(url: string, opts: { method?: string; headers?: Record<stri
 describe("requestToAPIGatewayV2Event", () => {
   test("converts basic POST request", () => {
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
-    const event = requestToAPIGatewayV2Event(request, '{"alert":"test"}', "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, '{"alert":"test"}', "https://example.com", "tok");
 
     expect(event.version).toBe("2.0");
     expect(event.rawPath).toBe("/webhook/mackerel");
@@ -23,11 +23,11 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(event.isBase64Encoded).toBe(false);
   });
 
-  test("includes x-prepalert-dispatched header", () => {
+  test("includes the dispatch token header", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
-    expect(event.headers["x-prepalert-dispatched"]).toBe("true");
+    expect(event.headers["prepalert-dispatch-token"]).toBe("tok");
   });
 
   test("preserves original request headers", () => {
@@ -37,7 +37,7 @@ describe("requestToAPIGatewayV2Event", () => {
         "x-custom-header": "custom-value",
       },
     });
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.headers["content-type"]).toBe("application/json");
     expect(event.headers["x-custom-header"]).toBe("custom-value");
@@ -45,7 +45,7 @@ describe("requestToAPIGatewayV2Event", () => {
 
   test("uses targetPath when provided", () => {
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "/internal/process");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok", "/internal/process");
 
     expect(event.rawPath).toBe("/internal/process");
     expect(event.requestContext.http.path).toBe("/internal/process");
@@ -54,21 +54,21 @@ describe("requestToAPIGatewayV2Event", () => {
 
   test("uses original path when targetPath is undefined", () => {
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", undefined);
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok", undefined);
 
     expect(event.rawPath).toBe("/webhook/mackerel");
   });
 
   test("handles query string", () => {
     const request = makeRequest("http://localhost:8080/webhook/test?key=value&foo=bar");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.rawQueryString).toBe("key=value&foo=bar");
   });
 
   test("handles empty query string", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.rawQueryString).toBe("");
   });
@@ -80,7 +80,7 @@ describe("requestToAPIGatewayV2Event", () => {
         "x-forwarded-for": "10.0.0.1",
       },
     });
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.requestContext.http.sourceIp).toBe("10.0.0.1");
   });
@@ -92,14 +92,14 @@ describe("requestToAPIGatewayV2Event", () => {
         "x-forwarded-for": "10.0.0.1, 192.168.1.1, 172.16.0.1",
       },
     });
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.requestContext.http.sourceIp).toBe("10.0.0.1");
   });
 
   test("uses 127.0.0.1 as default sourceIp", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.requestContext.http.sourceIp).toBe("127.0.0.1");
   });
@@ -111,15 +111,15 @@ describe("requestToAPIGatewayV2Event", () => {
         "x-forwarded-for": "   ",
       },
     });
-    const event = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event.requestContext.http.sourceIp).toBe("127.0.0.1");
   });
 
   test("generates unique requestId", () => {
     const request = makeRequest("http://localhost:8080/webhook/test");
-    const event1 = requestToAPIGatewayV2Event(request, "", "https://example.com");
-    const event2 = requestToAPIGatewayV2Event(request, "", "https://example.com");
+    const event1 = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
+    const event2 = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
 
     expect(event1.requestContext.requestId).not.toBe(event2.requestContext.requestId);
   });
@@ -136,6 +136,7 @@ describe("requestToAPIGatewayV2Event", () => {
       request,
       '{"alert":"fired","severity":"critical"}',
       "https://my-lambda.example.com",
+      "tok",
     );
 
     const serialized = JSON.stringify(event);
@@ -144,7 +145,7 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(deserialized.version).toBe("2.0");
     expect(deserialized.rawPath).toBe("/webhook/mackerel");
     expect(deserialized.body).toBe('{"alert":"fired","severity":"critical"}');
-    expect(deserialized.headers["x-prepalert-dispatched"]).toBe("true");
+    expect(deserialized.headers["prepalert-dispatch-token"]).toBe("tok");
     expect(deserialized.requestContext.domainName).toBe("my-lambda.example.com");
   });
 });
@@ -165,6 +166,7 @@ describe("sendToSqs", () => {
         config: { type: "aws-sqs", queueUrl: "https://sqs.us-east-1.amazonaws.com/123/q" },
         request,
         body: largeBody,
+        dispatchToken: "tok",
         logger: noopLogger as never,
       }),
     ).rejects.toThrow("exceeds the 262144 byte limit");
@@ -183,6 +185,7 @@ describe("sendToSqs", () => {
       config: { type: "aws-sqs", queueUrl: "https://sqs.us-east-1.amazonaws.com/123/q" },
       request,
       body: '{"alert":"test"}',
+      dispatchToken: "tok",
       logger: noopLogger as never,
       client: fakeClient as never,
     });

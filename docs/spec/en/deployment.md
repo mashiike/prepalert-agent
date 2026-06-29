@@ -179,6 +179,7 @@ serve:
 **Key points:**
 
 - Lambda maximum execution time is 15 minutes. Set `timeout` shorter than this
+- **`sessionsDir` automatically falls back to `/tmp` (`/tmp/prepalert-sessions`) on Lambda.** On Lambda the filesystem is read-only except for `/tmp`, and `sessionsDir` (default `<project-dir>/sessions`) is always written as a local buffer. When a non-`/tmp` path is configured, a warning is logged and it falls back. To silence the warning, set `sessionsDir` explicitly under `/tmp`. Note that writes to `sessionsDir` happen even when `storage` (S3) is configured
 - Use the `compile:lambda` script (`bun build --compile --target=bun-linux-x64 --outfile bootstrap`) to build a Lambda custom runtime binary
 - Set SQS `VisibilityTimeout` to be greater than or equal to `timeout`
 - In Lambda environments, async mode is automatically forced to sync mode (Lambda does not support fire-and-forget execution)
@@ -256,6 +257,7 @@ storageOptions:
 
 - Supports S3 or GCS (`s3://` / `gs://`)
 - S3-compatible storage (MinIO, etc.) is supported via `storageOptions.endpoint` and `forcePathStyle`
+- **GCS (`gs://`) is accessed via the S3-compatible XML API with SigV4, so you must provide a GCS interoperability HMAC key as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`** (GCP native authentication does not work). See `storage` in [project-config.md](./project-config.md) for details
 - `sessionsDir` is always used as a local buffer. `storage` is the async upload destination
 
 See [project-config.md](./project-config.md) for `storage` / `storageOptions` details.

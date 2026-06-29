@@ -149,6 +149,7 @@ serve:                                # serve コマンド設定 (optional)
 - **必須:** No
 - **デフォルト:** なし（未設定時は `sessionsDir` がそのまま永続先）
 - **説明:** 永続ストレージの URL。`s3://bucket/prefix/` または `gs://bucket/prefix/` 形式。設定すると、セッションデータ（report, artifact, metadata）が即時書き込まれ、transcript はセッション完了時にアップロードされる。API はこちらから読み取る。
+- **GCS（`gs://`）を使う場合の注意:** 内部的には S3 互換 XML API（endpoint `https://storage.googleapis.com`）でアクセスし、認証は AWS SDK の credential chain を SigV4 署名に使う。そのため **GCS の[相互運用性（interoperability）HMAC キー](https://cloud.google.com/storage/docs/authentication/hmackeys)を、AWS 形式の認証情報（`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`）として渡す**必要がある。GCP のネイティブ認証（Application Default Credentials / サービスアカウント JSON）では動作しない。
 
 ### `storageOptions`
 
@@ -414,7 +415,7 @@ OIDC 認証設定。設定すると SPA（`/`, `/sessions/*`）と API（`/api/*
 
 外部キューサービスへの転送設定。設定するとこの webhook は受信したリクエストをキューに積んで即座にレスポンスを返す。実際の Agent 処理は、キューサービスが `targetPath`（または自分自身）を HTTP で叩くことで実行される。
 
-**セキュリティに関する注意:** Cloud Run 環境では Cloud Tasks が付与するヘッダー（`X-CloudTasks-*`）は外部から偽装可能である（App Engine と異なりヘッダーの自動置換が行われない）。dispatch のターゲットとなる webhook には `authType: oidc` を設定し、Cloud Tasks の OIDC トークン（`dispatch.oidc` で設定）による認証を行うことを強く推奨する。`authType: none` のターゲットに対しては起動時に警告が出力される。
+**認証（dispatch されたコールバックの信頼）:** dispatch 時に prepalert-agent 自身が秘密鍵で署名した短命 JWT を発行し、`prepalert-dispatch-token` ヘッダに載せる。コールバック受信時はこの JWT を検証し、有効なら正規の dispatch とみなして元 webhook の `authType` 検証をスキップする。これにより `X-CloudTasks-*` 等の偽装可能なヘッダに依存せず、ヘッダ偽装による認証バイパスを防ぐ。署名鍵には `serve.exportSecret`（audience `prepalert:dispatch` で用途分離して共用）を用いるため、**dispatch を使う場合は複数インスタンス間で共有できるよう `serve.exportSecret` を明示設定すること**（未設定時は起動ごとに自動生成され、再起動・スケールアウト時に検証へ失敗しうる）。トークンの有効期限は `dispatchDeadline`（SQS は project `timeout`、いずれも未設定時は 900 秒）に連動する。
 
 #### `serve.webhooks[].dispatch.type`
 
@@ -437,9 +438,9 @@ OIDC 認証設定。設定すると SPA（`/`, `/sessions/*`）と API（`/api/*
 
 **二段 endpoint パターン:** `targetPath` に別の webhook の path を指定する。dispatch 用と処理用の endpoint が明確に分離される。
 
-**単一 path パターン:** `targetPath` を省略する。Cloud Tasks からのコールバックは、タスク作成時に付与する `X-Prepalert-Dispatched` ヘッダおよび Cloud Tasks が付与する `X-CloudTasks-TaskName` ヘッダで判別し、いずれかがある場合は dispatch をスキップして直接処理する。`X-Prepalert-Dispatched` は prepalert-agent がタスク作成時に必ず付与する自前ヘッダであり、Cloud Tasks 側のヘッダが何らかの理由で欠けた場合でも無限ループを防止する。
+**単一 path パターン:** `targetPath` を省略する。コールバックは `prepalert-dispatch-token` ヘッダの dispatch JWT を検証して判別し、有効なら dispatch をスキップして直接処理する。これにより無限ループも防止される。
 
-単一 path パターンでは authType が1つしか設定できないため、`authType: basic` との併用はエラーになる（Cloud Tasks は basic 認証の credential を持たないため、コールバック時に認証が通らない）。外部からは basic 認証、Cloud Tasks からは OIDC で受けたい場合は二段 endpoint パターンを使用すること。
+dispatch JWT による信頼判定は元 webhook の `authType` と独立しているため、単一 path パターンでも `authType` を自由に選べる（`basic` でも可）。dispatch されたコールバックは authType 検証をスキップするため、外部からは `basic`、内部の dispatch は JWT で受ける、といった併用が単一 path でも成立する。
 
 #### `serve.webhooks[].dispatch.baseUrl`
 
@@ -457,7 +458,7 @@ OIDC 認証設定。設定すると SPA（`/`, `/sessions/*`）と API（`/api/*
 
 #### `serve.webhooks[].dispatch.oidc`
 
-Cloud Tasks がタスク実行時に付与する OIDC トークンの設定。`targetPath` 先（または単一 path パターンの自分自身）が `authType: oidc` を要求する場合に必要。
+Cloud Tasks がタスク実行時に付与する OIDC トークンの設定。これは **Cloud Run の IAM 呼び出し認証**（「認証が必要」な private な Cloud Run サービスを Cloud Tasks が呼び出すためのネットワーク層の認証）に用いる。アプリ層の dispatch 信頼判定は上記の dispatch JWT が担うため、`dispatch.oidc` は private な Cloud Run を使う場合にのみ設定すればよい。設定すると Cloud Tasks が ID トークンを `Authorization` ヘッダに付与する（dispatch JWT は別の `prepalert-dispatch-token` ヘッダなので衝突しない）。
 
 #### `serve.webhooks[].dispatch.oidc.serviceAccountEmail`
 
@@ -578,7 +579,7 @@ serve:
   webhooks:
     # 1つの path で受信と処理を兼ねる
     # - 通常リクエスト → Cloud Tasks にエンキュー → 202
-    # - X-CloudTasks-TaskName ヘッダあり → 同期処理 → 200
+    # - 有効な dispatch JWT (prepalert-dispatch-token) あり → 同期処理 → 200
     - path: /webhook/mackerel
       authType: oidc
       issuer: https://accounts.google.com

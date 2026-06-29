@@ -252,7 +252,7 @@ describe("SQS event with API Gateway v2 payload integration", () => {
     const innerEvent = makeAPIGatewayV2Event({
       headers: {
         "content-type": "application/json",
-        "x-prepalert-dispatched": "true",
+        "prepalert-dispatch-token": "tok",
         host: "example.com",
       },
     });
@@ -268,6 +268,6 @@ describe("SQS event with API Gateway v2 payload integration", () => {
     const request = apiGatewayV2EventToRequest(parsed as APIGatewayV2Event);
     expect(request.method).toBe("POST");
     expect(request.url).toBe("https://example.com/webhook/test");
-    expect(request.headers.get("x-prepalert-dispatched")).toBe("true");
+    expect(request.headers.get("prepalert-dispatch-token")).toBe("tok");
   });
 });

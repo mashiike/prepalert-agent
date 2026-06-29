@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { loadProject } from "../project.js";
 import { validateWebhooks, createFetchHandler, type ServeContext, type DispatchFn } from "../commands/serve.js";
 import type { WebhookConfig, Project, DispatchConfig } from "../project.js";
-import { DISPATCHED_HEADER } from "../dispatch.js";
 import { LocalSessionStorage } from "../storage.js";
 
 async function createTempProject(files: Record<string, string>): Promise<string> {
@@ -355,74 +354,6 @@ describe("validateWebhooks", () => {
       makeWebhook({ path: "/process", sync: true }),
     ];
     expect(() => validateWebhooks(webhooks)).toThrow("no chaining");
-  });
-
-  test("warns when dispatch target uses authType none", () => {
-    const warnings: string[] = [];
-    const logger = {
-      debug: () => {},
-      info: () => {},
-      warn: (msg: string) => { warnings.push(msg); },
-      error: () => {},
-    };
-    const webhooks = [
-      makeWebhook({
-        path: "/webhook/gcp",
-        authType: "oidc",
-        issuer: "https://accounts.google.com",
-        audience: "https://my-service.run.app",
-        dispatch: {
-          type: "cloud-tasks",
-          queue: "projects/p/locations/l/queues/q",
-          targetPath: "/process",
-        },
-      }),
-      makeWebhook({ path: "/process", authType: "none", sync: true }),
-    ];
-    validateWebhooks(webhooks, logger as never, undefined, "15m");
-    expect(warnings.length).toBe(1);
-    expect(warnings[0]).toContain("authType \"none\"");
-  });
-
-  test("rejects single-path dispatch with authType basic", () => {
-    const webhooks = [
-      makeWebhook({
-        path: "/webhook/single",
-        authType: "basic",
-        username: "user",
-        password: "pass",
-        sync: true,
-        dispatch: {
-          type: "cloud-tasks",
-          queue: "projects/p/locations/l/queues/q",
-        },
-      }),
-    ];
-    expect(() => validateWebhooks(webhooks)).toThrow("authType \"basic\"");
-  });
-
-  test("warns when single-path dispatch uses authType none", () => {
-    const warnings: string[] = [];
-    const logger = {
-      debug: () => {},
-      info: () => {},
-      warn: (msg: string) => { warnings.push(msg); },
-      error: () => {},
-    };
-    const webhooks = [
-      makeWebhook({
-        path: "/webhook/single",
-        authType: "none",
-        sync: true,
-        dispatch: {
-          type: "cloud-tasks",
-          queue: "projects/p/locations/l/queues/q",
-        },
-      }),
-    ];
-    validateWebhooks(webhooks, logger as never, undefined, "15m");
-    expect(warnings.length).toBe(1);
-    expect(warnings[0]).toContain("authType \"none\"");
   });
 
   test("throws when webhook path conflicts with healthCheck path", () => {

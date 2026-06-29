@@ -1,13 +1,11 @@
 import type { CloudTasksClient, protos } from "@google-cloud/tasks";
 import { parseDuration } from "./config.js";
+import { DISPATCH_TOKEN_HEADER } from "./dispatch-token.js";
 import type { CloudTasksDispatchConfig } from "./project.js";
 import type { Logger } from "./logger.js";
 
 type ITask = protos.google.cloud.tasks.v2.ITask;
 type IHttpRequest = protos.google.cloud.tasks.v2.IHttpRequest;
-
-const CLOUD_TASKS_HEADER = "x-cloudtasks-taskname";
-export const DISPATCHED_HEADER = "x-prepalert-dispatched";
 
 const METADATA_SA_URL =
   "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email";
@@ -20,15 +18,6 @@ async function getClient(): Promise<CloudTasksClient> {
     cachedClient = new CloudTasksClient();
   }
   return cachedClient;
-}
-
-/**
- * Detect whether an incoming request was dispatched (Cloud Tasks, SQS, etc.).
- * Checks both the Cloud Tasks native header and the generic dispatched header
- * to prevent infinite dispatch loops in single-path patterns.
- */
-export function isDispatchedRequest(request: Request): boolean {
-  return request.headers.has(CLOUD_TASKS_HEADER) || request.headers.has(DISPATCHED_HEADER);
 }
 
 /**
@@ -98,6 +87,7 @@ export interface CreateTaskParams {
   request: Request;
   body: string;
   projectTimeout: string | undefined;
+  dispatchToken: string;
   logger: Logger;
   client?: { createTask: CloudTasksClient["createTask"] } | undefined;
 }
@@ -106,7 +96,7 @@ export interface CreateTaskParams {
  * Create a Cloud Tasks HTTP task that calls back the target endpoint.
  */
 export async function createCloudTask(params: CreateTaskParams): Promise<void> {
-  const { config, request, body, projectTimeout, logger } = params;
+  const { config, request, body, projectTimeout, dispatchToken, logger } = params;
   const client = params.client ?? (await getClient());
   const baseUrl = resolveBaseUrl(config, request);
   const targetPath = config.targetPath ?? new URL(request.url).pathname;
@@ -122,7 +112,7 @@ export async function createCloudTask(params: CreateTaskParams): Promise<void> {
     url,
     headers: {
       "Content-Type": "application/json",
-      [DISPATCHED_HEADER]: "true",
+      [DISPATCH_TOKEN_HEADER]: dispatchToken,
     },
     body: Buffer.from(body),
   };

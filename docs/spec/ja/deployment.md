@@ -179,6 +179,7 @@ serve:
 **ポイント:**
 
 - Lambda の最大実行時間は 15 分。`timeout` はそれより短く設定すること
+- **`sessionsDir` は Lambda 環境では自動的に `/tmp` 配下（`/tmp/prepalert-sessions`）にフォールバックする。** Lambda のファイルシステムは `/tmp` 以外が読み取り専用で、`sessionsDir`（デフォルト `<project-dir>/sessions`）はローカルバッファとして常に書き込まれるため。`/tmp` 配下以外が設定されている場合は warn ログを出してフォールバックする。warn を消すには `sessionsDir` を明示的に `/tmp` 配下に設定すること。`storage`（S3）を設定していても `sessionsDir` への書き込みは発生する点に注意
 - `compile:lambda` スクリプト（`bun build --compile --target=bun-linux-x64 --outfile bootstrap`）で Lambda カスタムランタイム用バイナリをビルドできる
 - SQS の `VisibilityTimeout` を `timeout` 以上に設定すること
 - Lambda 環境では非同期モードが強制的に同期モードに切り替わる（Lambda は fire-and-forget を許容しないため）
@@ -256,6 +257,7 @@ storageOptions:
 
 - S3 または GCS（`s3://` / `gs://`）に対応
 - S3 互換ストレージ（MinIO 等）は `storageOptions.endpoint` と `forcePathStyle` で対応
+- **GCS（`gs://`）は S3 互換 XML API + SigV4 でアクセスするため、GCS の interoperability HMAC キーを `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` として渡す必要がある**（GCP ネイティブ認証では動作しない）。詳細は [project-config.md](./project-config.md) の `storage` を参照
 - `sessionsDir` はローカルバッファとして常に使用される。`storage` はそこからの非同期アップロード先
 
 詳細は [project-config.md](./project-config.md) の `storage` / `storageOptions` を参照。
