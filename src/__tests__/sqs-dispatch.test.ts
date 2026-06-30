@@ -43,6 +43,22 @@ describe("requestToAPIGatewayV2Event", () => {
     expect(event.headers["x-custom-header"]).toBe("custom-value");
   });
 
+  test("strips credential headers (Authorization, Cookie) before serializing", () => {
+    const request = makeRequest("http://localhost:8080/webhook/test", {
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer secret-token",
+        cookie: "session=secret",
+      },
+    });
+    const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok");
+
+    expect(event.headers["authorization"]).toBeUndefined();
+    expect(event.headers["cookie"]).toBeUndefined();
+    expect(event.headers["content-type"]).toBe("application/json");
+    expect(event.headers["prepalert-dispatch-token"]).toBe("tok");
+  });
+
   test("uses targetPath when provided", () => {
     const request = makeRequest("http://localhost:8080/webhook/mackerel");
     const event = requestToAPIGatewayV2Event(request, "", "https://example.com", "tok", "/internal/process");

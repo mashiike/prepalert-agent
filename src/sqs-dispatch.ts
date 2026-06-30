@@ -6,6 +6,13 @@ import type { Logger } from "./logger.js";
 
 const SQS_MAX_MESSAGE_SIZE = 262144;
 
+/**
+ * Credential headers stripped before persisting the dispatched request in SQS.
+ * Dispatched callbacks are trusted via the dispatch token, so the original
+ * caller credentials are unused downstream and must not sit at-rest in the queue.
+ */
+const SENSITIVE_HEADERS = new Set(["authorization", "cookie", "proxy-authorization"]);
+
 let cachedClient: SQSClient | undefined;
 
 function getClient(): SQSClient {
@@ -30,6 +37,7 @@ export function requestToAPIGatewayV2Event(
   const effectivePath = targetPath ?? url.pathname;
   const headers: Record<string, string> = {};
   request.headers.forEach((value, key) => {
+    if (SENSITIVE_HEADERS.has(key.toLowerCase())) return;
     headers[key] = value;
   });
   headers[DISPATCH_TOKEN_HEADER] = dispatchToken;
