@@ -1,6 +1,6 @@
 import type { SessionStorage } from "./storage.js";
 import type { Logger } from "./logger.js";
-import { generateExportToken } from "./export-token.js";
+import { generateExportToken, exportTokenExpiresInMs, DEFAULT_EXPIRES_IN } from "./export-token.js";
 
 export interface ApiContext {
   storage: SessionStorage;
@@ -254,18 +254,15 @@ function inferMimeType(name: string): string {
   return MIME_MAP[ext] ?? "application/octet-stream";
 }
 
-const EXPORT_TOKEN_EXPIRES_IN = "15m";
-const EXPORT_TOKEN_EXPIRES_MS = 15 * 60 * 1000;
-
 async function handleCreateExportUrl(id: string, ctx: ApiContext): Promise<Response> {
   if (!validateSessionId(id)) return errorResponse("invalid session id", 400);
   try {
     const session = await ctx.storage.getSession(id);
     if (!session) return errorResponse("session not found", 404);
 
-    const token = await generateExportToken(id, ctx.exportSecret, EXPORT_TOKEN_EXPIRES_IN);
+    const token = await generateExportToken(id, ctx.exportSecret, DEFAULT_EXPIRES_IN);
     const url = `${ctx.baseUrl}/export/${token}`;
-    const expiresAt = new Date(Date.now() + EXPORT_TOKEN_EXPIRES_MS).toISOString();
+    const expiresAt = new Date(Date.now() + exportTokenExpiresInMs(DEFAULT_EXPIRES_IN)).toISOString();
     return jsonResponse({ url, expiresAt });
   } catch (e) {
     ctx.logger.error("createExportUrl failed", { error: e instanceof Error ? e.message : String(e) });

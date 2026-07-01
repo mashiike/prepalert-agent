@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { resolveExportSecret, generateExportToken, verifyExportToken } from "../export-token.js";
+import { resolveExportSecret, generateExportToken, verifyExportToken, exportTokenExpiresInMs, DEFAULT_EXPIRES_IN } from "../export-token.js";
+import * as jose from "jose";
 
 describe("resolveExportSecret", () => {
   test("uses configured secret", () => {
@@ -50,5 +51,17 @@ describe("generateExportToken / verifyExportToken", () => {
     await new Promise(resolve => setTimeout(resolve, 1100));
     const result = await verifyExportToken(token, secret);
     expect(result).toBeNull();
+  });
+});
+
+describe("exportTokenExpiresInMs", () => {
+  test("matches the exp claim actually set by generateExportToken for the default duration", async () => {
+    const secret = new TextEncoder().encode("test-secret");
+    const before = Math.floor(Date.now() / 1000);
+    const token = await generateExportToken("session-123", secret, DEFAULT_EXPIRES_IN);
+    const decoded = jose.decodeJwt(token);
+    const actualTtlSeconds = (decoded.exp ?? 0) - before;
+    const expectedTtlSeconds = exportTokenExpiresInMs(DEFAULT_EXPIRES_IN) / 1000;
+    expect(Math.abs(actualTtlSeconds - expectedTtlSeconds)).toBeLessThanOrEqual(1);
   });
 });

@@ -141,9 +141,10 @@ program
     const projectDir = globals.projectDir as string;
     const logLevel = resolveLogLevel(globals.logLevel as string | undefined);
     const project = await loadProjectOrExit(projectDir);
-    const rawPort = opts.port ? parseInt(opts.port as string, 10) : (project.config.serve?.port ?? 8080);
-    if (Number.isNaN(rawPort) || rawPort < 1 || rawPort > 65535) {
-      console.error(`Invalid port: ${opts.port}`);
+    const configuredPort: unknown = project.config.serve?.port ?? 8080;
+    const rawPort = opts.port ? parseInt(opts.port as string, 10) : configuredPort;
+    if (typeof rawPort !== "number" || Number.isNaN(rawPort) || rawPort < 1 || rawPort > 65535) {
+      console.error(`Invalid port: ${opts.port ?? configuredPort}`);
       process.exit(1);
     }
     const port = rawPort;

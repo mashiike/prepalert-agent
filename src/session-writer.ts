@@ -1,5 +1,6 @@
 import { mkdirSync, appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
+import { MAX_BUFFER_LINES } from "./transcript.js";
 import type { TranscriptEvent, TranscriptWriter } from "./transcript.js";
 import type { SessionStorage, SessionMetadata } from "./storage.js";
 import { createSessionDir } from "./storage.js";
@@ -143,8 +144,6 @@ export class SessionWriter implements TranscriptWriter {
     }
   }
 }
-
-const MAX_BUFFER_LINES = 10_000;
 
 export const MAX_ARTIFACT_SIZE = 10 * 1024 * 1024;
 

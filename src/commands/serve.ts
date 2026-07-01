@@ -202,6 +202,9 @@ async function dispatchRequest(
   }
 }
 
+const VALID_AUTH_TYPES = new Set(["none", "basic", "oidc"]);
+const VALID_DISPATCH_TYPES = new Set(["cloud-tasks", "aws-sqs"]);
+
 export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | undefined, healthCheckPath?: string | undefined, projectTimeout?: string | undefined): void {
   const pathSet = new Set<string>();
   const webhookMap = new Map<string, WebhookConfig>();
@@ -213,6 +216,9 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
   for (const wh of webhooks) {
     if (isReservedPath(wh.path)) {
       throw new Error(`reserved path cannot be used as webhook: ${wh.path}`);
+    }
+    if (!VALID_AUTH_TYPES.has(wh.authType)) {
+      throw new Error(`webhook "${wh.path}" has invalid authType: "${wh.authType}" (expected "none", "basic", or "oidc")`);
     }
     if (healthCheckPath && wh.path === healthCheckPath) {
       throw new Error(`webhook path "${wh.path}" conflicts with healthCheck path`);
@@ -226,6 +232,10 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
 
   for (const wh of webhooks) {
     if (!wh.dispatch) continue;
+
+    if (!VALID_DISPATCH_TYPES.has(wh.dispatch.type)) {
+      throw new Error(`dispatch on "${wh.path}" has invalid type: "${wh.dispatch.type}" (expected "cloud-tasks" or "aws-sqs")`);
+    }
 
     if (wh.dispatch.type === "aws-sqs" && !wh.dispatch.queueUrl) {
       throw new Error(`dispatch on "${wh.path}" has type "aws-sqs" but queueUrl is not set`);
@@ -409,7 +419,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
         return handleLogin(cfg, returnTo);
       }
       if (request.method === "GET" && url.pathname === "/auth/callback") {
-        return handleCallback(request, cfg);
+        return handleCallback(request, cfg, logger);
       }
       if (request.method === "GET" && url.pathname === "/auth/logout") {
         return handleLogout(baseUrl);

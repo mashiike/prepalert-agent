@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
-import { expandEnvVarsInObject } from "./config.js";
+import { expandEnvVarsInObject, parseDuration } from "./config.js";
 
 export interface CloudTasksDispatchOidc {
   serviceAccountEmail?: string | undefined;
@@ -188,6 +188,13 @@ async function loadProjectConfig(projectDir: string): Promise<ProjectConfig> {
       throw new Error(`"instructions" and "instructionsFile" cannot both be set in ${configPath}`);
     }
     const expanded = expandEnvVarsInObject(parsed) as ProjectConfig;
+    if (expanded.timeout !== undefined) {
+      try {
+        parseDuration(expanded.timeout);
+      } catch {
+        throw new Error(`Invalid "timeout" in ${configPath}: expected a duration like "30m" or "1h", got ${JSON.stringify(expanded.timeout)}`);
+      }
+    }
     if (expanded.instructionsFile) {
       const filePath = join(projectDir, expanded.instructionsFile);
       expanded.instructions = await readFile(filePath, "utf-8");

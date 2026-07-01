@@ -1,4 +1,5 @@
 import * as jose from "jose";
+import type { Logger } from "./logger.js";
 
 const SESSION_AUDIENCE = "prepalert:session";
 const SESSION_COOKIE_NAME = "prepalert_session";
@@ -135,13 +136,14 @@ export async function handleLogin(config: OidcConfig, returnTo?: string): Promis
   return response;
 }
 
-export async function handleCallback(request: Request, config: OidcConfig): Promise<Response> {
+export async function handleCallback(request: Request, config: OidcConfig, logger?: Logger): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const errorParam = url.searchParams.get("error");
 
   if (errorParam) {
     const desc = url.searchParams.get("error_description") ?? errorParam;
+    logger?.warn("OIDC provider returned an error on callback", { error: errorParam, description: desc });
     return new Response(`Authentication failed: ${desc}`, { status: 403 });
   }
   if (!code) {
@@ -182,7 +184,8 @@ export async function handleCallback(request: Request, config: OidcConfig): Prom
 
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
-    return new Response(`Token exchange failed: ${body}`, { status: 502 });
+    logger?.warn("OIDC token exchange failed", { status: tokenRes.status, body });
+    return new Response("Token exchange failed", { status: 502 });
   }
 
   const tokenData = await tokenRes.json() as Record<string, unknown>;
@@ -201,7 +204,8 @@ export async function handleCallback(request: Request, config: OidcConfig): Prom
     idPayload = verified.payload;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return new Response(`ID token verification failed: ${msg}`, { status: 403 });
+    logger?.warn("OIDC ID token verification failed", { error: msg });
+    return new Response("ID token verification failed", { status: 403 });
   }
 
   if (idPayload["nonce"] !== statePayload["n"]) {

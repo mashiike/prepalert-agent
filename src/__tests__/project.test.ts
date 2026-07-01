@@ -64,6 +64,23 @@ describe("loadProject", () => {
     await rm(dir, { recursive: true });
   });
 
+  test("throws when timeout has no unit", async () => {
+    const dir = await createTempProject({
+      "prepalert.yaml": `name: test\ntimeout: 30\n`,
+    });
+    await expect(loadProject(dir)).rejects.toThrow('Invalid "timeout"');
+    await rm(dir, { recursive: true });
+  });
+
+  test("accepts a valid timeout duration", async () => {
+    const dir = await createTempProject({
+      "prepalert.yaml": `name: test\ntimeout: 30m\n`,
+    });
+    const project = await loadProject(dir);
+    expect(project.config.timeout).toBe("30m");
+    await rm(dir, { recursive: true });
+  });
+
   test("loads instructions from instructionsFile", async () => {
     const dir = await createTempProject({
       "prepalert.yaml": `name: test\ninstructionsFile: PREPALERT.md\n`,

@@ -277,6 +277,23 @@ describe("validateWebhooks", () => {
     validateWebhooks(webhooks);
   });
 
+  test("rejects invalid authType", () => {
+    const webhooks = [
+      makeWebhook({ path: "/webhook/a", authType: "Basic" as never }),
+    ];
+    expect(() => validateWebhooks(webhooks)).toThrow('invalid authType: "Basic"');
+  });
+
+  test("rejects invalid dispatch.type", () => {
+    const webhooks = [
+      makeWebhook({
+        path: "/webhook/a",
+        dispatch: { type: "gcp-tasks" as never, queue: "q" },
+      }),
+    ];
+    expect(() => validateWebhooks(webhooks)).toThrow('invalid type: "gcp-tasks"');
+  });
+
   test("passes single-path dispatch (no targetPath)", () => {
     const webhooks = [
       makeWebhook({

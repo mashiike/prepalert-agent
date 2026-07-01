@@ -1,8 +1,17 @@
 import * as jose from "jose";
+import { parseDuration } from "./config.js";
 
 const ALG = "HS256";
-const DEFAULT_EXPIRES_IN = "15m";
+export const DEFAULT_EXPIRES_IN = "15m";
 const EXPORT_AUDIENCE = "prepalert:export";
+
+/**
+ * Resolves the effective export token expiry in milliseconds, mirroring the
+ * duration passed to generateExportToken so `expiresAt` stays accurate.
+ */
+export function exportTokenExpiresInMs(expiresIn: string = DEFAULT_EXPIRES_IN): number {
+  return parseDuration(expiresIn) * 1000;
+}
 
 /**
  * Resolves the export secret key.

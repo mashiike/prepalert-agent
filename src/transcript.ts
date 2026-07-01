@@ -260,7 +260,7 @@ export class LocalTranscriptWriter implements TranscriptWriter {
   }
 }
 
-const MAX_BUFFER_LINES = 10_000;
+export const MAX_BUFFER_LINES = 10_000;
 
 export class NullTranscriptWriter implements TranscriptWriter {
   write(_event: TranscriptEvent): void {}
