@@ -211,6 +211,19 @@ describe("apiGatewayV2EventToRequest", () => {
     expect(request.headers.get("content-type")).toBe("application/json");
     expect(request.headers.has("x-custom")).toBe(false);
   });
+
+  test("resolves scheme and host case-insensitively", () => {
+    const event = makeAPIGatewayV2Event({
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-Proto": "http",
+        Host: "upper-case.example.com",
+      },
+    });
+    const request = apiGatewayV2EventToRequest(event);
+
+    expect(request.url).toBe("http://upper-case.example.com/webhook/test");
+  });
 });
 
 describe("responseToAPIGatewayV2", () => {
@@ -244,6 +257,22 @@ describe("responseToAPIGatewayV2", () => {
 
     expect(result.statusCode).toBe(204);
     expect(result.body).toBe("");
+  });
+
+  test("preserves multiple Set-Cookie headers as separate cookies", async () => {
+    const response = new Response(null, {
+      status: 302,
+      headers: [
+        ["Location", "/"],
+        ["Set-Cookie", "a=1; Path=/"],
+        ["Set-Cookie", "b=2; Path=/"],
+      ],
+    });
+    const result = await responseToAPIGatewayV2(response);
+
+    expect(result.cookies).toEqual(["a=1; Path=/", "b=2; Path=/"]);
+    expect(result.headers?.["set-cookie"]).toBeUndefined();
+    expect(result.headers?.["location"]).toBe("/");
   });
 });
 

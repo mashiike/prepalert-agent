@@ -30,11 +30,6 @@ export function isAPIGatewayV2Event(event: unknown): event is APIGatewayProxyEve
 }
 
 export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Request {
-  const proto = event.headers?.["x-forwarded-proto"] ?? "https";
-  const host = event.headers?.["host"] ?? event.requestContext.domainName;
-  const qs = event.rawQueryString ? `?${event.rawQueryString}` : "";
-  const url = `${proto}://${host}${event.rawPath}${qs}`;
-
   const headers = new Headers();
   if (event.headers) {
     for (const [key, value] of Object.entries(event.headers)) {
@@ -46,6 +41,11 @@ export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Reque
   if (event.cookies && event.cookies.length > 0) {
     headers.set("cookie", event.cookies.join("; "));
   }
+
+  const proto = headers.get("x-forwarded-proto") ?? "https";
+  const host = headers.get("host") ?? event.requestContext.domainName;
+  const qs = event.rawQueryString ? `?${event.rawQueryString}` : "";
+  const url = `${proto}://${host}${event.rawPath}${qs}`;
 
   const method = event.requestContext.http.method;
   let body: string | Buffer | undefined;
@@ -62,11 +62,9 @@ export function apiGatewayV2EventToRequest(event: APIGatewayProxyEventV2): Reque
 
 export async function responseToAPIGatewayV2(response: Response): Promise<APIGatewayProxyStructuredResultV2> {
   const headers: Record<string, string> = {};
-  const cookies: string[] = [];
+  const cookies = response.headers.getSetCookie();
   response.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "set-cookie") {
-      cookies.push(value);
-    } else {
+    if (key.toLowerCase() !== "set-cookie") {
       headers[key] = value;
     }
   });
