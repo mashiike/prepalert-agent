@@ -102,9 +102,12 @@ webhook パスは `/webhook/` プレフィックスに限定されない。`serv
 - session cookie: `HttpOnly; SameSite=Lax; Path=/`。HTTPS 環境では `Secure` 付き
 - PKCE（Proof Key for Code Exchange）で認可コード横取り攻撃を防止
 - state パラメータ（署名付き）で CSRF 攻撃を防止
-- `allowedDomains` でドメイン制限。`email_verified` claim も検証
+- `allowedDomains` でドメイン制限（大文字小文字は区別しない）。`email_verified` claim も検証
 - session cookie と export JWT は異なる `aud` claim で用途を区別（confused deputy 防止）
 - API の POST エンドポイントは `Content-Type: application/json` を要求（CSRF 対策）
+- `prepalert-dispatch-token`（webhook の非同期ディスパッチ後に自分自身のリクエストを再認証なしで受け付けるための内部トークン）は、発行元の webhook パスに `sub` claim としてスコープされる。他の webhook パスに対しては使用できない
+
+**`serve.auth` を設定しない場合の注意:** `serve.auth` は opt-in であり、未設定時は SPA（`/`, `/sessions/*`）と API（`/api/*`）に認証がかからず、全セッションのログ・レポート・アーティファクトが誰でも読める状態で公開される。信頼できないネットワークに直接公開する場合は必ず `serve.auth` を設定すること。
 
 ## localhost 開発
 

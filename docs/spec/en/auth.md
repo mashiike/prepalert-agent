@@ -102,9 +102,12 @@ Webhook paths are not limited to the `/webhook/` prefix. Any path defined in `se
 - Session cookie: `HttpOnly; SameSite=Lax; Path=/`. `Secure` flag is added in HTTPS environments
 - PKCE (Proof Key for Code Exchange) prevents authorization code interception attacks
 - Signed state parameter prevents CSRF attacks
-- `allowedDomains` restricts by domain. The `email_verified` claim is also verified
+- `allowedDomains` restricts by domain (case-insensitive). The `email_verified` claim is also verified
 - Session cookies and export JWTs use different `aud` claims to distinguish their purposes (confused deputy prevention)
 - API POST endpoints require `Content-Type: application/json` (CSRF mitigation)
+- `prepalert-dispatch-token` (an internal token that lets a webhook's own re-delivered request skip re-authentication after async dispatch) is scoped to its originating webhook path via the `sub` claim and cannot be used against other webhook paths
+
+**Note on running without `serve.auth`:** `serve.auth` is opt-in. When unset, the SPA (`/`, `/sessions/*`) and API (`/api/*`) have no authentication, exposing every session's logs, reports, and artifacts to anyone who can reach the server. Always configure `serve.auth` before exposing `serve` to an untrusted network.
 
 ## localhost Development
 

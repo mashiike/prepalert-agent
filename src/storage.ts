@@ -399,6 +399,9 @@ class S3SessionStorage implements SessionStorage {
   }
 
   async writeArtifact(id: string, name: string, content: Uint8Array): Promise<void> {
+    if (name.includes("..") || name.startsWith("/") || name.startsWith("\\")) {
+      throw new Error(`invalid artifact name: ${name}`);
+    }
     await this.putObject(this.sessionKey(id, `artifacts/${name}`), content);
   }
 
@@ -675,9 +678,13 @@ export class LocalSessionStorage implements SessionStorage {
 
   async writeArtifact(id: string, name: string, content: Uint8Array): Promise<void> {
     const sessionDir = this.resolveSessionDir(id);
-    const artifactsDir = join(sessionDir, "artifacts");
+    const artifactsDir = resolve(join(sessionDir, "artifacts"));
+    const filePath = resolve(join(artifactsDir, name));
+    if (!filePath.startsWith(artifactsDir + sep)) {
+      throw new Error(`invalid artifact name: ${name}`);
+    }
     await mkdir(artifactsDir, { recursive: true });
-    await writeFile(join(artifactsDir, name), content);
+    await writeFile(filePath, content);
   }
 
   async writeRunbookReport(id: string, runbookId: string, toolUseId: string, content: Uint8Array): Promise<void> {

@@ -62,7 +62,7 @@ describe("buildHealthCheckResponse", () => {
 
   test("returns idle response when activeRequests is 0", async () => {
     const config = resolveHealthCheckConfig(undefined);
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/json");
     const body = await response.text();
@@ -72,7 +72,7 @@ describe("buildHealthCheckResponse", () => {
   test("returns busy response when activeRequests > 0", async () => {
     const config = resolveHealthCheckConfig(undefined);
     const ctx = { ...baseCtx, activeRequests: 3 };
-    const response = buildHealthCheckResponse(config, ctx);
+    const response = await buildHealthCheckResponse(config, ctx);
     const body = await response.text();
     expect(JSON.parse(body)).toEqual({ status: "busy", activeRequests: 3 });
   });
@@ -82,7 +82,7 @@ describe("buildHealthCheckResponse", () => {
       idle: { body: '{"t":@unix_time}' },
     });
     const before = Math.floor(Date.now() / 1000);
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const after = Math.floor(Date.now() / 1000);
     const body = JSON.parse(await response.text());
     expect(body.t).toBeGreaterThanOrEqual(before);
@@ -94,7 +94,7 @@ describe("buildHealthCheckResponse", () => {
       busy: { body: '{"active":@active_requests}' },
     });
     const ctx = { ...baseCtx, activeRequests: 5 };
-    const response = buildHealthCheckResponse(config, ctx);
+    const response = await buildHealthCheckResponse(config, ctx);
     const body = JSON.parse(await response.text());
     expect(body.active).toBe(5);
   });
@@ -103,7 +103,7 @@ describe("buildHealthCheckResponse", () => {
     const config = resolveHealthCheckConfig({
       idle: { body: '{"total":@total_requests}' },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(body.total).toBe(10);
   });
@@ -112,7 +112,7 @@ describe("buildHealthCheckResponse", () => {
     const config = resolveHealthCheckConfig({
       idle: { body: '{"uptime":@uptime}' },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(body.uptime).toBeGreaterThanOrEqual(59);
     expect(body.uptime).toBeLessThanOrEqual(61);
@@ -122,7 +122,7 @@ describe("buildHealthCheckResponse", () => {
     const config = resolveHealthCheckConfig({
       idle: { body: '{"t":@unix_time,"active":@active_requests,"total":@total_requests,"up":@uptime}' },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(typeof body.t).toBe("number");
     expect(body.active).toBe(0);
@@ -134,7 +134,7 @@ describe("buildHealthCheckResponse", () => {
     const config = resolveHealthCheckConfig({
       idle: { body: { sh: 'echo \'{"from":"shell"}\'' } },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(body.from).toBe("shell");
   });
@@ -143,7 +143,7 @@ describe("buildHealthCheckResponse", () => {
     const config = resolveHealthCheckConfig({
       idle: { body: { sh: "exit 1" } },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(body.error).toBe("health check command failed");
   });
@@ -153,7 +153,7 @@ describe("buildHealthCheckResponse", () => {
       // Simulates malformed YAML config (e.g. `sh: 123` or an object without `sh`).
       idle: { body: { sh: 123 } as never },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     const body = JSON.parse(await response.text());
     expect(body.error).toBe("invalid health check body configuration");
   });
@@ -163,7 +163,7 @@ describe("buildHealthCheckResponse", () => {
       busy: { status: 503, body: "Service Busy" },
     });
     const ctx = { ...baseCtx, activeRequests: 1 };
-    const response = buildHealthCheckResponse(config, ctx);
+    const response = await buildHealthCheckResponse(config, ctx);
     expect(response.status).toBe(503);
     expect(await response.text()).toBe("Service Busy");
   });
@@ -173,7 +173,7 @@ describe("buildHealthCheckResponse", () => {
       contentType: "text/plain",
       idle: { body: "ok" },
     });
-    const response = buildHealthCheckResponse(config, baseCtx);
+    const response = await buildHealthCheckResponse(config, baseCtx);
     expect(response.headers.get("Content-Type")).toBe("text/plain");
     expect(await response.text()).toBe("ok");
   });
@@ -186,13 +186,13 @@ describe("buildHealthCheckResponse", () => {
     });
     const before = Math.floor(Date.now() / 1000);
 
-    const idleResponse = buildHealthCheckResponse(config, baseCtx);
+    const idleResponse = await buildHealthCheckResponse(config, baseCtx);
     const idleBody = JSON.parse(await idleResponse.text());
     expect(idleBody.status).toBe("Healthy");
     expect(idleBody.time_of_last_update).toBeGreaterThanOrEqual(before);
 
     const busyCtx = { ...baseCtx, activeRequests: 1 };
-    const busyResponse = buildHealthCheckResponse(config, busyCtx);
+    const busyResponse = await buildHealthCheckResponse(config, busyCtx);
     const busyBody = JSON.parse(await busyResponse.text());
     expect(busyBody.status).toBe("HealthyBusy");
     expect(busyBody.time_of_last_update).toBeGreaterThanOrEqual(before);

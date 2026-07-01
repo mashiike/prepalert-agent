@@ -82,6 +82,8 @@ function shouldUseTaskProtectionForWebhook(webhook: WebhookConfig, project: Proj
   return isEcsEnvironment();
 }
 
+const VALID_HOST_PATTERN = /^[a-zA-Z0-9.-]+(:\d+)?$/;
+
 function resolveBaseUrl(configured: string | undefined, request: Request, url: URL): string {
   if (configured) {
     return configured.replace(/\/$/, "");
@@ -89,7 +91,7 @@ function resolveBaseUrl(configured: string | undefined, request: Request, url: U
   const forwardedHost = request.headers.get("x-forwarded-host");
   const forwardedProto = request.headers.get("x-forwarded-proto")
     ?? request.headers.get("cloudfront-forwarded-proto");
-  if (forwardedHost) {
+  if (forwardedHost && VALID_HOST_PATTERN.test(forwardedHost)) {
     const proto = forwardedProto ?? "https";
     return `${proto}://${forwardedHost}`;
   }
@@ -190,7 +192,7 @@ async function dispatchRequest(
     ? resolveDispatchDeadlineSeconds(config.dispatchDeadline, projectTimeout)
     : resolveDispatchDeadlineSeconds(undefined, projectTimeout);
   const ttl = deadline ?? DISPATCH_TOKEN_FALLBACK_TTL_SECONDS;
-  const dispatchToken = await generateDispatchToken(dispatchSecret, ttl);
+  const dispatchToken = await generateDispatchToken(dispatchSecret, ttl, new URL(request.url).pathname);
 
   switch (config.type) {
     case "cloud-tasks":
@@ -473,7 +475,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
     }
 
     const dispatchTokenValue = request.headers.get(DISPATCH_TOKEN_HEADER);
-    const dispatched = dispatchTokenValue !== null && await verifyDispatchToken(dispatchTokenValue, exportSecret);
+    const dispatched = dispatchTokenValue !== null && await verifyDispatchToken(dispatchTokenValue, exportSecret, url.pathname);
 
     if (!dispatched) {
       const authConfig = toAuthConfig(webhook);

@@ -1,5 +1,8 @@
-import { execSync } from "node:child_process";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 import type { HealthCheckConfig, HealthCheckStateConfig } from "./project.js";
+
+const execAsync = promisify(exec);
 
 export interface HealthCheckContext {
   activeRequests: number;
@@ -55,10 +58,11 @@ function isShBody(body: unknown): body is { sh: string } {
   return typeof body === "object" && body !== null && typeof (body as { sh?: unknown }).sh === "string";
 }
 
-function evaluateBody(body: string | { sh: string }, ctx: HealthCheckContext): string {
+async function evaluateBody(body: string | { sh: string }, ctx: HealthCheckContext): Promise<string> {
   if (isShBody(body)) {
     try {
-      return execSync(body.sh, { encoding: "utf-8", timeout: 5000 }).trimEnd();
+      const { stdout } = await execAsync(body.sh, { encoding: "utf-8", timeout: 5000 });
+      return stdout.trimEnd();
     } catch {
       return '{"error":"health check command failed"}';
     }
@@ -69,13 +73,13 @@ function evaluateBody(body: string | { sh: string }, ctx: HealthCheckContext): s
   return '{"error":"invalid health check body configuration"}';
 }
 
-export function buildHealthCheckResponse(
+export async function buildHealthCheckResponse(
   config: ReturnType<typeof resolveHealthCheckConfig>,
   ctx: HealthCheckContext,
-): Response {
+): Promise<Response> {
   const isBusy = ctx.activeRequests > 0;
   const stateConfig = isBusy ? config.busy : config.idle;
-  const body = evaluateBody(stateConfig.body, ctx);
+  const body = await evaluateBody(stateConfig.body, ctx);
   return new Response(body, {
     status: stateConfig.status,
     headers: { "Content-Type": config.contentType },

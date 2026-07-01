@@ -222,8 +222,9 @@ export async function handleCallback(request: Request, config: OidcConfig, logge
   }
 
   if (config.allowedDomains && config.allowedDomains.length > 0) {
-    const domain = email.split("@")[1];
-    if (!domain || !config.allowedDomains.includes(domain)) {
+    const domain = email.split("@")[1]?.toLowerCase();
+    const allowedDomains = config.allowedDomains.map(d => d.toLowerCase());
+    if (!domain || !allowedDomains.includes(domain)) {
       return new Response("Domain not allowed", { status: 403 });
     }
   }
