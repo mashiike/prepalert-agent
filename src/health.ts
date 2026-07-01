@@ -51,15 +51,22 @@ function expandDynamicVars(template: string, ctx: HealthCheckContext): string {
     .replace(/@uptime/g, String(uptime));
 }
 
+function isShBody(body: unknown): body is { sh: string } {
+  return typeof body === "object" && body !== null && typeof (body as { sh?: unknown }).sh === "string";
+}
+
 function evaluateBody(body: string | { sh: string }, ctx: HealthCheckContext): string {
-  if (typeof body === "object" && "sh" in body) {
+  if (isShBody(body)) {
     try {
       return execSync(body.sh, { encoding: "utf-8", timeout: 5000 }).trimEnd();
     } catch {
       return '{"error":"health check command failed"}';
     }
   }
-  return expandDynamicVars(body, ctx);
+  if (typeof body === "string") {
+    return expandDynamicVars(body, ctx);
+  }
+  return '{"error":"invalid health check body configuration"}';
 }
 
 export function buildHealthCheckResponse(

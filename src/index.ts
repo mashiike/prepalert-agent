@@ -133,6 +133,10 @@ program
   .description("Start a webhook server")
   .option("--port <port>", "port to listen on")
   .action(async (opts, cmd) => {
+    if (typeof Bun === "undefined") {
+      console.error("error: 'serve' requires the Bun runtime (it uses Bun.serve). Run this command via the compiled binary or `bun run`, not plain Node.");
+      process.exit(1);
+    }
     const globals = cmd.optsWithGlobals();
     const projectDir = globals.projectDir as string;
     const logLevel = resolveLogLevel(globals.logLevel as string | undefined);

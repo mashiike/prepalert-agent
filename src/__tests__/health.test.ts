@@ -148,6 +148,16 @@ describe("buildHealthCheckResponse", () => {
     expect(body.error).toBe("health check command failed");
   });
 
+  test("does not throw and returns an error body when body is a malformed object", async () => {
+    const config = resolveHealthCheckConfig({
+      // Simulates malformed YAML config (e.g. `sh: 123` or an object without `sh`).
+      idle: { body: { sh: 123 } as never },
+    });
+    const response = buildHealthCheckResponse(config, baseCtx);
+    const body = JSON.parse(await response.text());
+    expect(body.error).toBe("invalid health check body configuration");
+  });
+
   test("respects custom status code", async () => {
     const config = resolveHealthCheckConfig({
       busy: { status: 503, body: "Service Busy" },

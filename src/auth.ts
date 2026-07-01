@@ -22,7 +22,14 @@ export type AuthConfig = AuthNone | AuthBasic | AuthOidc;
 
 export type AuthResult =
   | { ok: true }
-  | { ok: false; status: number; message: string; headers?: Record<string, string> | undefined };
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      /** Detailed failure reason for server-side logs only; never sent to the client. */
+      logMessage?: string | undefined;
+      headers?: Record<string, string> | undefined;
+    };
 
 export async function verifyAuth(
   request: Request,
@@ -119,7 +126,7 @@ async function verifyOidcAuth(
     });
     return { ok: true };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "JWT verification failed";
-    return { ok: false, status: 401, message, headers: challenge };
+    const logMessage = e instanceof Error ? e.message : "JWT verification failed";
+    return { ok: false, status: 401, message: "Invalid or expired token", logMessage, headers: challenge };
   }
 }

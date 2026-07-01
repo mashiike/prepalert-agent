@@ -469,7 +469,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
       const authConfig = toAuthConfig(webhook);
       const authResult = await verifyAuth(request, authConfig);
       if (!authResult.ok) {
-        logger.warn("auth failed", { path: url.pathname, status: authResult.status, message: authResult.message });
+        logger.warn("auth failed", { path: url.pathname, status: authResult.status, message: authResult.logMessage ?? authResult.message });
         return new Response(authResult.message, authResult.headers
           ? { status: authResult.status, headers: authResult.headers }
           : { status: authResult.status },

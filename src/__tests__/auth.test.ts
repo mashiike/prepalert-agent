@@ -115,5 +115,18 @@ describe("verifyAuth", () => {
         expect(result.headers?.["WWW-Authenticate"]).toBe('Bearer realm="prepalert"');
       }
     });
+
+    test("returns a generic client-facing message and keeps verification detail server-side only", async () => {
+      const result = await verifyAuth(
+        makeRequest({ authorization: "Bearer invalid-token" }),
+        config,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.message).toBe("Invalid or expired token");
+        expect(result.logMessage).toBeDefined();
+        expect(result.logMessage).not.toBe(result.message);
+      }
+    });
   });
 });
