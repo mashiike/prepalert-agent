@@ -74,6 +74,25 @@ describe("LocalTranscriptWriter", () => {
     await writer.close();
   });
 
+  test("retains buffered events when a flush fails and writes them on the next successful flush", async () => {
+    const dir = makeTmpDir();
+    dirs.push(dir);
+    const writer = new LocalTranscriptWriter(dir, 1);
+    const transcriptPath = join(writer.sessionDir, "transcript.jsonl");
+
+    mkdirSync(transcriptPath);
+    writer.write({ timestamp: "2025-06-16T00:00:00.000Z", type: "user", content: "evt1" });
+
+    rmSync(transcriptPath, { recursive: true });
+    writer.write({ timestamp: "2025-06-16T00:00:01.000Z", type: "user", content: "evt2" });
+
+    const lines = readFileSync(transcriptPath, "utf-8").trim().split("\n");
+    expect(lines.length).toBe(2);
+    expect(lines[0]).toContain("evt1");
+    expect(lines[1]).toContain("evt2");
+    await writer.close();
+  });
+
   test("each writer creates a unique session directory", () => {
     const dir = makeTmpDir();
     dirs.push(dir);

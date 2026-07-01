@@ -240,16 +240,27 @@ export class LocalTranscriptWriter implements TranscriptWriter {
 
   private flush(): void {
     if (this.buffer.length === 0) return;
-    const data = this.buffer.join("\n") + "\n";
+    const lines = this.buffer;
     this.buffer = [];
     try {
-      appendFileSync(this.filePath, data);
+      appendFileSync(this.filePath, lines.join("\n") + "\n");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger?.warn("transcript write failed", { path: this.filePath, error: msg });
+      this.buffer = [...lines, ...this.buffer];
+      if (this.buffer.length > MAX_BUFFER_LINES) {
+        const dropped = this.buffer.length - MAX_BUFFER_LINES;
+        this.buffer = this.buffer.slice(dropped);
+        this.logger?.warn("transcript buffer overflow, dropping oldest events", {
+          path: this.filePath,
+          dropped,
+        });
+      }
     }
   }
 }
+
+const MAX_BUFFER_LINES = 10_000;
 
 export class NullTranscriptWriter implements TranscriptWriter {
   write(_event: TranscriptEvent): void {}

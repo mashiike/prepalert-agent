@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { tool, createSdkMcpServer, type McpSdkServerConfigWithInstance } from "@anthropic-ai/claude-agent-sdk";
-import { type SessionWriter, validateArtifactName } from "./session-writer.js";
+import { type SessionWriter, validateArtifactName, MAX_ARTIFACT_SIZE } from "./session-writer.js";
 
 /**
  * Builds an inline MCP server providing session tools (create_report, create_artifact).
@@ -40,14 +40,14 @@ function buildSessionTools(writer: SessionWriter) {
           safeName = validateArtifactName(args.name);
           if (encoding === "base64") {
             const decodedSize = Buffer.byteLength(args.content, "base64");
-            if (decodedSize > 10 * 1024 * 1024) {
-              throw new Error(`artifact too large: ${decodedSize} bytes (max ${10 * 1024 * 1024})`);
+            if (decodedSize > MAX_ARTIFACT_SIZE) {
+              throw new Error(`artifact too large: ${decodedSize} bytes (max ${MAX_ARTIFACT_SIZE})`);
             }
             bytes = Buffer.from(args.content, "base64");
           } else {
             bytes = new TextEncoder().encode(args.content);
-            if (bytes.byteLength > 10 * 1024 * 1024) {
-              throw new Error(`artifact too large: ${bytes.byteLength} bytes (max ${10 * 1024 * 1024})`);
+            if (bytes.byteLength > MAX_ARTIFACT_SIZE) {
+              throw new Error(`artifact too large: ${bytes.byteLength} bytes (max ${MAX_ARTIFACT_SIZE})`);
             }
           }
           await writer.writeArtifact(safeName, bytes);

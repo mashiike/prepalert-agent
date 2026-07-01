@@ -126,6 +126,12 @@ export function buildQueryOptions(project: Project, opts: BuildOptions): Options
   mcpServers["docs-tools"] = buildDocsToolsServer();
   result.permissionMode = opts.permissionMode;
   if (opts.canUseTool) result.canUseTool = opts.canUseTool;
-  if (project.config.allowedTools) result.allowedTools = project.config.allowedTools;
+  if (project.config.allowedTools) {
+    result.allowedTools = project.config.allowedTools;
+  } else if (opts.permissionMode === "dontAsk") {
+    const allowed = [...buildDefaultAllowedTools(project), "mcp__docs-tools__*"];
+    if (opts.sessionWriter) allowed.push("mcp__session-tools__*");
+    result.allowedTools = allowed;
+  }
   return result;
 }

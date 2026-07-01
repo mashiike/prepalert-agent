@@ -146,7 +146,7 @@ export class SessionWriter implements TranscriptWriter {
 
 const MAX_BUFFER_LINES = 10_000;
 
-const MAX_ARTIFACT_SIZE = 10 * 1024 * 1024;
+export const MAX_ARTIFACT_SIZE = 10 * 1024 * 1024;
 
 export function validateArtifactName(name: string): string {
   const safe = basename(name);
