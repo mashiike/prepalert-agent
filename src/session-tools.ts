@@ -13,7 +13,7 @@ export function buildSessionToolsServer(writer: SessionWriter): McpSdkServerConf
   });
 }
 
-function buildSessionTools(writer: SessionWriter) {
+export function buildSessionTools(writer: SessionWriter) {
   return [
     tool(
       "create_report",
