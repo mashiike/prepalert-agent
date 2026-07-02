@@ -17,6 +17,12 @@ bun install
 bun run compile
 ```
 
+A Docker image is also available:
+
+```bash
+docker pull ghcr.io/mashiike/prepalert-agent
+```
+
 ## Usage
 
 ```
@@ -66,9 +72,12 @@ prepalert-agent --project-dir ./my-project serve
 
 Features:
 - **Authentication**: None, Basic, or OIDC (JWT) per webhook endpoint
+- **SPA**: Session viewer (browse reports, artifacts, and transcripts)
+- **OIDC authentication**: Protect the SPA and API with Google / Auth0 etc.
 - **Async mode** (default): Returns 202 immediately, agent runs in background
 - **Sync mode**: Waits for agent completion, returns 200 (for Cloud Run etc.)
 - **ECS task protection**: Automatically protects tasks during async processing
+- **External queue dispatch**: Cloud Tasks / AWS SQS
 
 ## Project Structure
 
@@ -190,7 +199,20 @@ All configuration uses [standard OpenTelemetry environment variables](https://op
 | `OTEL_SERVICE_NAME` | Override service name (default: `prepalert-agent`) |
 | `OTEL_RESOURCE_ATTRIBUTES` | Additional resource attributes (e.g. `deployment.environment=production,service.instance.id=abc`) |
 
-Host and process attributes (`host.name`, `process.pid`, `process.runtime.*`) are auto-detected. See [docs/spec/ja/telemetry.md](docs/spec/ja/telemetry.md) for details.
+Host and process attributes (`host.name`, `process.pid`, `process.runtime.*`) are auto-detected. See [docs/spec/en/telemetry.md](docs/spec/en/telemetry.md) for details.
+
+## Spec Documents
+
+| Document | Content |
+|---|---|
+| [project-config.md](docs/spec/en/project-config.md) | All project config fields |
+| [runbook.md](docs/spec/en/runbook.md) | How to write runbooks |
+| [auth.md](docs/spec/en/auth.md) | OIDC authentication setup |
+| [export-and-handoff.md](docs/spec/en/export-and-handoff.md) | Session export and handoff |
+| [project-structure.md](docs/spec/en/project-structure.md) | Project structure details |
+| [telemetry.md](docs/spec/en/telemetry.md) | OpenTelemetry details |
+| [init.md](docs/spec/en/init.md) | `init` command spec |
+| [install-skills.md](docs/spec/en/install-skills.md) | `skills` command spec |
 
 ## Development
 

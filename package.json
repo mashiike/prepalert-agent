@@ -6,6 +6,14 @@
   "bin": {
     "prepalert-agent": "./dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mashiike/prepalert-agent.git"
+  },
+  "homepage": "https://github.com/mashiike/prepalert-agent#readme",
+  "bugs": {
+    "url": "https://github.com/mashiike/prepalert-agent/issues"
+  },
   "scripts": {
     "lint": "eslint src/",
     "build": "tsc",
@@ -15,7 +23,13 @@
     "start": "bun run src/index.ts",
     "dev": "bun src/index.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "alert",
+    "monitoring",
+    "agent",
+    "cli",
+    "observability"
+  ],
   "author": "mashiike",
   "license": "MIT",
   "devDependencies": {

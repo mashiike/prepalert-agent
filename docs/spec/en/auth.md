@@ -15,7 +15,7 @@ serve:
     clientId: ${OAUTH_CLIENT_ID}
     clientSecret: ${OAUTH_CLIENT_SECRET}
     allowedDomains:
-      - kayac.com
+      - example.com
 ```
 
 ### Fields
