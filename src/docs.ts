@@ -77,7 +77,7 @@ export function formatIndex(sections: DocsSection[]): string {
     .join("\n");
 }
 
-export async function listArticles(): Promise<DocsArticle[]> {
+export function listArticles(): DocsArticle[] {
   return Object.entries(EMBEDDED_DOCS).map(([key, content]) => {
     const slashIdx = key.indexOf("/");
     const lang = slashIdx >= 0 ? key.slice(0, slashIdx) : "ja";
@@ -88,7 +88,7 @@ export async function listArticles(): Promise<DocsArticle[]> {
   });
 }
 
-export async function loadArticle(name: string, lang: string = "ja"): Promise<string> {
+export function loadArticle(name: string, lang: string = "ja"): string {
   if (/[/\\]|\.\./.test(name) || /[/\\]|\.\./.test(lang)) {
     throw new Error(`invalid article name or lang: ${name}, ${lang}`);
   }

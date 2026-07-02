@@ -14,7 +14,7 @@ export interface ApiContext {
  * Returns a Response if the route matches, or null to fall through.
  */
 export async function handleApiRequest(
-  _request: Request,
+  request: Request,
   url: URL,
   ctx: ApiContext,
 ): Promise<Response | null> {
@@ -80,7 +80,7 @@ export async function handleApiRequest(
   }
 
   const exportUrlMatch = path.match(/^\/api\/sessions\/([^/]+)\/export-url$/);
-  if (exportUrlMatch && exportUrlMatch[1] && _request.method === "POST") {
+  if (exportUrlMatch && exportUrlMatch[1] && request.method === "POST") {
     return handleCreateExportUrl(exportUrlMatch[1], ctx);
   }
 

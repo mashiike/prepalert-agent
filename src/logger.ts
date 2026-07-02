@@ -42,19 +42,14 @@ export class FileLogger implements Logger {
   private readonly flushThreshold: number;
   private readonly stderrAll: boolean;
 
-  constructor(dir: string, level: LogLevel = "info", opts: FileLoggerOptions | number = 5) {
+  constructor(dir: string, level: LogLevel = "info", opts: FileLoggerOptions = {}) {
     mkdirSync(dir, { recursive: true });
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     const id = crypto.randomUUID().slice(0, 8);
     this.filePath = join(dir, `${ts}-${id}.jsonl`);
     this.minLevel = LOG_LEVEL_PRIORITY[level];
-    if (typeof opts === "number") {
-      this.flushThreshold = opts;
-      this.stderrAll = false;
-    } else {
-      this.flushThreshold = opts.flushThreshold ?? 5;
-      this.stderrAll = opts.stderrAll ?? false;
-    }
+    this.flushThreshold = opts.flushThreshold ?? 5;
+    this.stderrAll = opts.stderrAll ?? false;
   }
 
   debug(msg: string, fields?: LogFields): void { this.emit("debug", msg, fields); }

@@ -49,9 +49,7 @@ function handleStaticDir(url: URL, staticDir: string): Response | null {
     if (s.isFile()) {
       return serveFile(filePath);
     }
-  } catch {
-    // fall through
-  }
+  } catch {}
 
   return null;
 }

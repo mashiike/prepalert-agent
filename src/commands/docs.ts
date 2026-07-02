@@ -15,7 +15,7 @@ export function createDocsCommand(): Command {
       const lang = opts.lang as string;
 
       if (opts.list) {
-        const articles = await listArticles();
+        const articles = listArticles();
         if (jsonOutput) {
           console.log(JSON.stringify(articles, null, 2));
         } else {
@@ -33,7 +33,7 @@ export function createDocsCommand(): Command {
       const articleName = opts.article as string;
       let content: string;
       try {
-        content = await loadArticle(articleName, lang);
+        content = loadArticle(articleName, lang);
       } catch {
         console.error(`error: article "${articleName}" not found (lang: ${lang})`);
         console.error('Use --list to see available articles.');

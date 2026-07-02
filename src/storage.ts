@@ -239,9 +239,7 @@ class S3SessionStorage implements SessionStorage {
             status: parsed.status as SessionMetadata["status"],
           };
         }
-      } catch {
-        // malformed metadata.json — fall through to prefix check
-      }
+      } catch {}
     }
     const partition = sessionIdToDatePartition(id);
     const listCmd = new ListObjectsV2Command({
@@ -579,9 +577,7 @@ export class LocalSessionStorage implements SessionStorage {
             if (s.isFile()) {
               entries.push({ runbookId, toolUseId });
             }
-          } catch {
-            // stat ENOENT — report does not exist, skip
-          }
+          } catch {}
         }
       }
     };
@@ -630,9 +626,7 @@ export class LocalSessionStorage implements SessionStorage {
       if (!trimmed) continue;
       try {
         events.push(JSON.parse(trimmed));
-      } catch {
-        // malformed JSONL line, skip
-      }
+      } catch {}
     }
     return events;
   }
@@ -724,9 +718,7 @@ export class LocalSessionStorage implements SessionStorage {
           }
         }
       }
-    } catch {
-      // sessionsDir doesn't exist yet
-    }
+    } catch {}
 
     try {
       const entries = await readdir(this.sessionsDir);
@@ -738,9 +730,7 @@ export class LocalSessionStorage implements SessionStorage {
           ids.push(entry);
         }
       }
-    } catch {
-      // sessionsDir does not exist yet
-    }
+    } catch {}
 
     return ids;
   }

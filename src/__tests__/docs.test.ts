@@ -103,7 +103,7 @@ describe("loadArticle", () => {
     expect(content).toContain("prepalert.yaml");
   });
 
-  test("throws for nonexistent article", async () => {
-    expect(loadArticle("nonexistent", "ja")).rejects.toThrow();
+  test("throws for nonexistent article", () => {
+    expect(() => loadArticle("nonexistent", "ja")).toThrow();
   });
 });

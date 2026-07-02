@@ -21,7 +21,7 @@ export function buildDocsTools() {
       "List available prepalert-agent documentation articles. Use this to discover what documentation is available before searching or reading.",
       {},
       async () => {
-        const articles = await listArticles();
+        const articles = listArticles();
         const text = articles.length === 0
           ? "No articles found."
           : articles.map((a) => `[${a.lang}] ${a.name} — ${a.description}`).join("\n");
@@ -38,7 +38,7 @@ export function buildDocsTools() {
       async (args) => {
         const lang = args.lang ?? "ja";
         try {
-          const content = await loadArticle(args.article, lang);
+          const content = loadArticle(args.article, lang);
           const sections = parseSections(content);
           const text = formatIndex(sections);
           return { content: [{ type: "text" as const, text }] };
@@ -62,7 +62,7 @@ export function buildDocsTools() {
         const articleName = args.article ?? "project-config";
         const lang = args.lang ?? "ja";
         try {
-          const content = await loadArticle(articleName, lang);
+          const content = loadArticle(articleName, lang);
           const sections = parseSections(content);
           const matched = searchSections(sections, args.keyword);
           if (matched.length === 0) {
@@ -88,7 +88,7 @@ export function buildDocsTools() {
       async (args) => {
         const lang = args.lang ?? "ja";
         try {
-          const content = await loadArticle(args.article, lang);
+          const content = loadArticle(args.article, lang);
           return { content: [{ type: "text" as const, text: content }] };
         } catch {
           return {

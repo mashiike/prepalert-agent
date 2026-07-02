@@ -1,13 +1,10 @@
-# Project name (used for logging and identification)
+# See docs/spec/ja/project-config.md for the full field reference.
 name: acme-api
 
-# Model for the agent to use
 model: haiku
 
-# Maximum number of turns per agent execution
 maxTurns: 10
 
-# Cost limit per execution in USD
 costLimit: 1.0
 
 instructions: |
