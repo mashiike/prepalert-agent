@@ -140,6 +140,21 @@ describe("initProject", () => {
     expect(yaml).toContain("# instructionsFile: PREPALERT.md");
   });
 
+  test("rolls back created files when a later step fails, allowing retry", async () => {
+    const dir = await createTempDir({ runbooks: "this is a file, not a directory" });
+    const result = await initProject(dir);
+
+    expect(result.errors.length).toBe(1);
+    expect(result.errors[0]).toContain("rolled back");
+    expect(await exists(join(dir, "prepalert.yaml"))).toBe(false);
+    expect(await exists(join(dir, ".mcp.json"))).toBe(false);
+
+    await rm(join(dir, "runbooks"));
+    const retry = await initProject(dir);
+    expect(retry.errors).toEqual([]);
+    expect(retry.created).toContain("prepalert.yaml");
+  });
+
   test("generated runbook has valid frontmatter structure", async () => {
     const dir = await createTempDir();
     await initProject(dir);

@@ -258,7 +258,11 @@ class S3SessionStorage implements SessionStorage {
           status: "completed",
         };
       }
-    } catch {
+    } catch (e: unknown) {
+      this.logger?.warn("failed to list session objects", {
+        sessionId: id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       return null;
     }
     return null;
