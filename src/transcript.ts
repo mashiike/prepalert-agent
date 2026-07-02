@@ -205,40 +205,30 @@ export function sdkMessageToEvent(message: SDKMessage): TranscriptEvent | null {
   }
 }
 
-export class LocalTranscriptWriter implements TranscriptWriter {
-  readonly sessionId: string;
-  readonly sessionDir: string;
-  private readonly filePath: string;
+export const MAX_BUFFER_LINES = 10_000;
+
+/**
+ * Buffers JSONL lines and appends them to a file, retrying on the next flush
+ * if the write fails and dropping the oldest lines past MAX_BUFFER_LINES.
+ * Shared by LocalTranscriptWriter and SessionWriter.
+ */
+export class JsonlAppendBuffer {
   private buffer: string[] = [];
-  private readonly flushThreshold: number;
-  private readonly logger: Logger | undefined;
-  private closed = false;
 
-  constructor(sessionsDir: string, flushThreshold = 10, logger?: Logger) {
-    const { sessionId, sessionDir } = createSessionDir(sessionsDir);
-    this.sessionId = sessionId;
-    this.sessionDir = sessionDir;
-    mkdirSync(this.sessionDir, { recursive: true });
-    this.filePath = join(this.sessionDir, "transcript.jsonl");
-    this.flushThreshold = flushThreshold;
-    this.logger = logger;
-  }
+  constructor(
+    private readonly filePath: string,
+    private readonly flushThreshold: number,
+    private readonly logger: Logger | undefined,
+  ) {}
 
-  write(event: TranscriptEvent): void {
-    if (this.closed) return;
+  push(event: TranscriptEvent): void {
     this.buffer.push(JSON.stringify(event));
     if (this.buffer.length >= this.flushThreshold) {
       this.flush();
     }
   }
 
-  async close(): Promise<void> {
-    if (this.closed) return;
-    this.closed = true;
-    this.flush();
-  }
-
-  private flush(): void {
+  flush(): void {
     if (this.buffer.length === 0) return;
     const lines = this.buffer;
     this.buffer = [];
@@ -260,7 +250,31 @@ export class LocalTranscriptWriter implements TranscriptWriter {
   }
 }
 
-export const MAX_BUFFER_LINES = 10_000;
+export class LocalTranscriptWriter implements TranscriptWriter {
+  readonly sessionId: string;
+  readonly sessionDir: string;
+  private readonly jsonl: JsonlAppendBuffer;
+  private closed = false;
+
+  constructor(sessionsDir: string, flushThreshold = 10, logger?: Logger) {
+    const { sessionId, sessionDir } = createSessionDir(sessionsDir);
+    this.sessionId = sessionId;
+    this.sessionDir = sessionDir;
+    mkdirSync(this.sessionDir, { recursive: true });
+    this.jsonl = new JsonlAppendBuffer(join(this.sessionDir, "transcript.jsonl"), flushThreshold, logger);
+  }
+
+  write(event: TranscriptEvent): void {
+    if (this.closed) return;
+    this.jsonl.push(event);
+  }
+
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    this.jsonl.flush();
+  }
+}
 
 export class NullTranscriptWriter implements TranscriptWriter {
   write(_event: TranscriptEvent): void {}
