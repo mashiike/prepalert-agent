@@ -22,6 +22,7 @@ instructions: |
   - When investigating alerts, first check Mackerel for alert details, then look at CloudWatch Logs
   - For database-related issues, check RDS metrics via CloudWatch
   - For cache-related issues, check ElastiCache metrics via CloudWatch
+  - See references/service-map.md for the full component list and request flow
 
 serve:
   port: 8080

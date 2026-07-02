@@ -8,7 +8,28 @@
 
 ## インストール
 
-[GitHub Releases](https://github.com/mashiike/prepalert-agent/releases) からバイナリをダウンロード。
+[GitHub Releases](https://github.com/mashiike/prepalert-agent/releases) から、お使いのプラットフォーム向けのアーカイブをダウンロードします:
+
+| プラットフォーム | アーカイブ |
+|---|---|
+| Linux (x86_64) | `prepalert-agent_linux_amd64.tar.gz` |
+| Linux (arm64) | `prepalert-agent_linux_arm64.tar.gz` |
+| macOS (Intel) | `prepalert-agent_darwin_amd64.tar.gz` |
+| macOS (Apple Silicon) | `prepalert-agent_darwin_arm64.tar.gz` |
+
+各リリースには全アーカイブの SHA-256 ハッシュを記載した `checksums.txt` も含まれています。検証してから展開してください:
+
+```bash
+VERSION=v0.1.0 # ダウンロードしたバージョンに置き換える
+ARCHIVE=prepalert-agent_linux_amd64.tar.gz
+
+curl -LO https://github.com/mashiike/prepalert-agent/releases/download/${VERSION}/${ARCHIVE}
+curl -LO https://github.com/mashiike/prepalert-agent/releases/download/${VERSION}/checksums.txt
+sha256sum --ignore-missing -c checksums.txt
+
+tar xzf ${ARCHIVE}
+./prepalert-agent --version
+```
 
 またはソースからビルド:
 
