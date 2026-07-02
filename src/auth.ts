@@ -92,7 +92,7 @@ async function resolveJwksUri(config: AuthOidc): Promise<string> {
   const cached = jwksUriCache.get(config.issuer);
   if (cached) return cached;
   const discoveryUrl = `${config.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`;
-  const resp = await fetch(discoveryUrl);
+  const resp = await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) });
   if (!resp.ok) {
     throw new Error(`OIDC discovery failed: ${discoveryUrl} returned ${resp.status}`);
   }

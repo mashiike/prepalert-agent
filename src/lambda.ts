@@ -123,6 +123,7 @@ export async function startLambdaRuntime(
     const requestId = nextResponse.headers.get("lambda-runtime-aws-request-id");
     if (!requestId) {
       logger.error("missing request id from Lambda Runtime API");
+      await new Promise(r => setTimeout(r, 1000));
       continue;
     }
 
