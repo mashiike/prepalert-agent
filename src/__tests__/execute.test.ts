@@ -4,8 +4,7 @@ import {
   buildSystemPrompt,
   RUNBOOK_AGENT_PREFIX,
   RunbookReportTracker,
-  extractToolResultId,
-  extractTextFromUserMessage,
+  extractToolResults,
 } from "../commands/execute.js";
 import { NullLogger } from "../logger.js";
 import type { TranscriptWriter } from "../transcript.js";
@@ -22,11 +21,29 @@ function makeAssistantAgentCall(id: string, subagentType: string): SDKMessage {
   } as unknown as SDKMessage;
 }
 
+function makeAssistantAgentCalls(calls: Array<{ id: string; subagentType: string }>): SDKMessage {
+  return {
+    type: "assistant",
+    message: {
+      content: calls.map((c) => ({ type: "tool_use", id: c.id, name: "Agent", input: { subagent_type: c.subagentType } })),
+    },
+  } as unknown as SDKMessage;
+}
+
 function makeUserToolResult(toolUseId: string, content: unknown): SDKUserMessage {
   return {
     type: "user",
     message: {
       content: [{ type: "tool_result", tool_use_id: toolUseId, content }],
+    },
+  } as unknown as SDKUserMessage;
+}
+
+function makeUserToolResults(results: Array<{ toolUseId: string; content: unknown }>): SDKUserMessage {
+  return {
+    type: "user",
+    message: {
+      content: results.map((r) => ({ type: "tool_result", tool_use_id: r.toolUseId, content: r.content })),
     },
   } as unknown as SDKUserMessage;
 }
@@ -124,59 +141,47 @@ describe("buildSystemPrompt", () => {
   });
 });
 
-describe("extractToolResultId", () => {
-  test("returns tool_use_id of the first tool_result block", () => {
+describe("extractToolResults", () => {
+  test("returns the tool_use_id and text of a single tool_result block", () => {
     const message = makeUserToolResult("toolu_123", "result");
-    expect(extractToolResultId(message)).toBe("toolu_123");
+    expect(extractToolResults(message)).toEqual([{ toolUseId: "toolu_123", text: "result" }]);
   });
 
-  test("returns null for string content", () => {
+  test("returns an empty array for string content", () => {
     const message = { type: "user", message: { content: "plain text" } } as unknown as SDKUserMessage;
-    expect(extractToolResultId(message)).toBeNull();
+    expect(extractToolResults(message)).toEqual([]);
   });
 
-  test("returns null when no tool_result block exists", () => {
+  test("returns an empty array when no tool_result block exists", () => {
     const message = {
       type: "user",
       message: { content: [{ type: "text", text: "hello" }] },
     } as unknown as SDKUserMessage;
-    expect(extractToolResultId(message)).toBeNull();
-  });
-});
-
-describe("extractTextFromUserMessage", () => {
-  test("returns string content as-is", () => {
-    const message = { type: "user", message: { content: "plain text" } } as unknown as SDKUserMessage;
-    expect(extractTextFromUserMessage(message)).toBe("plain text");
+    expect(extractToolResults(message)).toEqual([]);
   });
 
-  test("extracts text from tool_result with string content", () => {
-    const message = makeUserToolResult("toolu_1", "report body");
-    expect(extractTextFromUserMessage(message)).toBe("report body");
-  });
-
-  test("extracts and joins text from tool_result with nested text blocks", () => {
+  test("extracts text from tool_result with nested text blocks", () => {
     const message = makeUserToolResult("toolu_1", [
       { type: "text", text: "part one " },
       { type: "text", text: "part two" },
     ]);
-    expect(extractTextFromUserMessage(message)).toBe("part one part two");
+    expect(extractToolResults(message)).toEqual([{ toolUseId: "toolu_1", text: "part one part two" }]);
   });
 
-  test("extracts top-level text blocks", () => {
-    const message = {
-      type: "user",
-      message: { content: [{ type: "text", text: "hello" }] },
-    } as unknown as SDKUserMessage;
-    expect(extractTextFromUserMessage(message)).toBe("hello");
+  test("returns null text when a tool_result has no text content", () => {
+    const message = makeUserToolResult("toolu_1", [{ type: "image", source: {} }]);
+    expect(extractToolResults(message)).toEqual([{ toolUseId: "toolu_1", text: null }]);
   });
 
-  test("returns null when no text is present", () => {
-    const message = {
-      type: "user",
-      message: { content: [{ type: "image", source: {} }] },
-    } as unknown as SDKUserMessage;
-    expect(extractTextFromUserMessage(message)).toBeNull();
+  test("keeps each tool_result's text independent when a message has multiple results", () => {
+    const message = makeUserToolResults([
+      { toolUseId: "toolu_a", content: "report A" },
+      { toolUseId: "toolu_b", content: "report B" },
+    ]);
+    expect(extractToolResults(message)).toEqual([
+      { toolUseId: "toolu_a", text: "report A" },
+      { toolUseId: "toolu_b", text: "report B" },
+    ]);
   });
 });
 
@@ -203,6 +208,61 @@ describe("RunbookReportTracker", () => {
 
     expect(calls).toEqual([
       { runbookId: "web-api/5xx", toolUseId: "toolu_1", content: "# Investigation result" },
+    ]);
+  });
+
+  test("saves each report independently when multiple runbook agents are called in parallel", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCalls([
+      { id: "toolu_a", subagentType: `${RUNBOOK_AGENT_PREFIX}web-api/5xx` },
+      { id: "toolu_b", subagentType: `${RUNBOOK_AGENT_PREFIX}db/conn` },
+    ]));
+    tracker.handleMessage(makeUserToolResults([
+      { toolUseId: "toolu_a", content: "report A" },
+      { toolUseId: "toolu_b", content: "report B" },
+    ]));
+    await tracker.flush();
+
+    expect(calls).toEqual([
+      { runbookId: "web-api/5xx", toolUseId: "toolu_a", content: "report A" },
+      { runbookId: "db/conn", toolUseId: "toolu_b", content: "report B" },
+    ]);
+  });
+
+  test("skips a null-text report but still saves a sibling report in the same message", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCalls([
+      { id: "toolu_a", subagentType: `${RUNBOOK_AGENT_PREFIX}web-api/5xx` },
+      { id: "toolu_b", subagentType: `${RUNBOOK_AGENT_PREFIX}db/conn` },
+    ]));
+    tracker.handleMessage(makeUserToolResults([
+      { toolUseId: "toolu_a", content: [{ type: "image", source: {} }] },
+      { toolUseId: "toolu_b", content: "report B" },
+    ]));
+    await tracker.flush();
+
+    expect(calls).toEqual([
+      { runbookId: "db/conn", toolUseId: "toolu_b", content: "report B" },
+    ]);
+  });
+
+  test("saves the tracked report when an untracked tool_result shares the same message", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCall("toolu_a", `${RUNBOOK_AGENT_PREFIX}web-api/5xx`));
+    tracker.handleMessage(makeUserToolResults([
+      { toolUseId: "toolu_untracked", content: "some other tool's result" },
+      { toolUseId: "toolu_a", content: "report A" },
+    ]));
+    await tracker.flush();
+
+    expect(calls).toEqual([
+      { runbookId: "web-api/5xx", toolUseId: "toolu_a", content: "report A" },
     ]);
   });
 
