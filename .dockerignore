@@ -1,0 +1,10 @@
+node_modules/
+dist/
+my-local/
+logs/
+sessions/
+.env
+.env.*
+.git/
+_examples/
+*.tar.gz

@@ -1,0 +1,66 @@
+{
+  "name": "prepalert-agent",
+  "version": "0.0.1",
+  "description": "CLI agent tool using Claude Agent SDK",
+  "type": "module",
+  "bin": {
+    "prepalert-agent": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mashiike/prepalert-agent.git"
+  },
+  "homepage": "https://github.com/mashiike/prepalert-agent#readme",
+  "bugs": {
+    "url": "https://github.com/mashiike/prepalert-agent/issues"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "build": "tsc",
+    "embed": "bun run scripts/embed-assets.ts",
+    "compile": "bun run embed && bun build --compile --minify src/index.ts --outfile prepalert-agent",
+    "compile:lambda": "bun run embed && bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile bootstrap",
+    "start": "bun run src/index.ts",
+    "dev": "bun src/index.ts"
+  },
+  "keywords": [
+    "alert",
+    "monitoring",
+    "agent",
+    "cli",
+    "observability"
+  ],
+  "author": "mashiike",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/aws-lambda": "^8.10.162",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^25.9.3",
+    "eslint": "^10.5.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.175",
+    "@aws-sdk/client-s3": "^3.1071.0",
+    "@aws-sdk/client-sqs": "^3.1071.0",
+    "@aws-sdk/s3-request-presigner": "^3.1071.0",
+    "@google-cloud/tasks": "^6.2.3",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api-logs": "^0.219.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.219.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.219.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-logs": "^0.219.0",
+    "@opentelemetry/sdk-metrics": "^2.8.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
+    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "commander": "^15.0.0",
+    "fflate": "^0.8.3",
+    "jose": "^6.2.3",
+    "yaml": "^2.9.0",
+    "zod": "4"
+  }
+}

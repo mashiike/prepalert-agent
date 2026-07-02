@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts
+*.d.ts.map
+*.tsbuildinfo
+my-local/
+.env
+.env.*
+!.env.example
+/prepalert-agent
+logs/
+sessions/
+THIRD_PARTY_LICENSES.md
+src/embedded-assets.ts
+
