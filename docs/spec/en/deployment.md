@@ -226,6 +226,8 @@ serve:
 
 The `serve` command includes a built-in session viewer SPA. Configure OIDC authentication when exposing externally.
 
+**Without `serve.auth`, the SPA and `/api/*` respond unauthenticated.** This configuration assumes access is blocked or authenticated upstream (CloudFront, ALB, etc.), or that the server is only reachable within a trusted network. Exposing it to the internet without meeting this assumption makes sessions (alert investigation results, logs, artifacts) readable by anyone.
+
 ```yaml
 serve:
   baseUrl: https://prepalert.example.com

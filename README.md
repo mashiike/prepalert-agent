@@ -213,6 +213,7 @@ Host and process attributes (`host.name`, `process.pid`, `process.runtime.*`) ar
 | [telemetry.md](docs/spec/en/telemetry.md) | OpenTelemetry details |
 | [init.md](docs/spec/en/init.md) | `init` command spec |
 | [install-skills.md](docs/spec/en/install-skills.md) | `skills` command spec |
+| [deployment.md](docs/spec/en/deployment.md) | Deployment guide (ECS / Cloud Run / Lambda etc.) |
 
 ## Development
 

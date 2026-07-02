@@ -106,25 +106,39 @@ function resolveTargetDir(scope: string): string {
 }
 
 async function resolveScope(scope: string | undefined): Promise<string> {
-  if (scope !== undefined) return scope;
+  if (scope !== undefined) {
+    if (scope !== "project" && scope !== "user") {
+      console.error(`error: invalid --scope '${scope}' (expected "project" or "user")`);
+      process.exit(1);
+    }
+    return scope;
+  }
   if (!process.stdin.isTTY) {
     throw new Error("--scope is required in non-interactive mode (project or user)");
   }
   const rl = createInterface({ input: process.stdin, output: process.stderr });
-  return new Promise((res) => {
+  const question = (prompt: string): Promise<string> =>
+    new Promise((res) => rl.question(prompt, res));
+  try {
     console.error("? Select installation scope:");
     console.error("  (1) project — .claude/skills/ (project local)");
     console.error("  (2) user    — ~/.claude/skills/ (user global)");
-    rl.question("> ", (answer) => {
-      rl.close();
-      const trimmed = answer.trim();
-      if (trimmed === "1" || trimmed === "project") {
-        res("project");
-      } else {
-        res("user");
+    console.error("  (3) other   — enter a path directly");
+    for (;;) {
+      const answer = (await question("> ")).trim();
+      if (answer === "1" || answer === "project") return "project";
+      if (answer === "2" || answer === "user") return "user";
+      if (answer === "3" || answer === "other") {
+        const path = (await question("path> ")).trim();
+        if (path) return path;
+        console.error("please enter a non-empty path");
+        continue;
       }
-    });
-  });
+      console.error("please answer 1, 2, or 3");
+    }
+  } finally {
+    rl.close();
+  }
 }
 
 export async function installSkills(targetDir: string, options: { dryRun?: boolean; force?: boolean }): Promise<ActionResult[]> {

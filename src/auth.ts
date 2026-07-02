@@ -64,12 +64,7 @@ function verifyBasicAuth(request: Request, config: AuthBasic): AuthResult {
   if (!authHeader?.startsWith("Basic ")) {
     return { ok: false, status: 401, message: "Missing Basic authentication", headers: challenge };
   }
-  let decoded: string;
-  try {
-    decoded = atob(authHeader.slice(6));
-  } catch {
-    return { ok: false, status: 401, message: "Invalid Basic authentication", headers: challenge };
-  }
+  const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
   const sep = decoded.indexOf(":");
   if (sep === -1) {
     return { ok: false, status: 401, message: "Invalid Basic authentication", headers: challenge };

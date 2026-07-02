@@ -13,7 +13,12 @@ export { RUNBOOK_AGENT_PREFIX } from "./agents.js";
 export { buildSystemPrompt } from "./prompt.js";
 export type { SessionContext } from "./prompt.js";
 
-class RunbookReportTracker {
+/**
+ * Watches SDK messages for runbook agent invocations and saves each agent's
+ * final result as a runbook report via SessionWriter.writeRunbookReport.
+ * Does nothing when the writer does not support runbook reports.
+ */
+export class RunbookReportTracker {
   private pendingAgentCalls = new Map<string, { runbookId: string; toolUseId: string }>();
   private readonly writer: SessionWriter | null;
   private readonly logger: Logger;
@@ -60,7 +65,11 @@ class RunbookReportTracker {
   }
 }
 
-function extractToolResultId(message: SDKUserMessage): string | null {
+/**
+ * Extracts the tool_use_id of the first tool_result block in a user message.
+ * Returns null when the message contains no tool_result block.
+ */
+export function extractToolResultId(message: SDKUserMessage): string | null {
   const content = message.message.content;
   if (!Array.isArray(content)) return null;
   for (const block of content) {
@@ -71,7 +80,11 @@ function extractToolResultId(message: SDKUserMessage): string | null {
   return null;
 }
 
-function extractTextFromUserMessage(message: SDKUserMessage): string | null {
+/**
+ * Concatenates all text content from a user message, including text nested
+ * inside tool_result blocks. Returns null when no text is present.
+ */
+export function extractTextFromUserMessage(message: SDKUserMessage): string | null {
   const content = message.message.content;
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return null;

@@ -33,7 +33,7 @@ export async function generateDispatchToken(secret: Uint8Array, expiresInSeconds
  */
 export async function verifyDispatchToken(token: string, secret: Uint8Array, path: string): Promise<boolean> {
   try {
-    await jose.jwtVerify(token, secret, { audience: DISPATCH_AUDIENCE, subject: path });
+    await jose.jwtVerify(token, secret, { audience: DISPATCH_AUDIENCE, subject: path, algorithms: [ALG] });
     return true;
   } catch {
     return false;

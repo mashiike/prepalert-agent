@@ -89,8 +89,9 @@ function resolveBaseUrl(configured: string | undefined, request: Request, url: U
     return configured.replace(/\/$/, "");
   }
   const forwardedHost = request.headers.get("x-forwarded-host");
-  const forwardedProto = request.headers.get("x-forwarded-proto")
+  const forwardedProtoRaw = request.headers.get("x-forwarded-proto")
     ?? request.headers.get("cloudfront-forwarded-proto");
+  const forwardedProto = forwardedProtoRaw === "http" || forwardedProtoRaw === "https" ? forwardedProtoRaw : null;
   if (forwardedHost && VALID_HOST_PATTERN.test(forwardedHost)) {
     const proto = forwardedProto ?? "https";
     return `${proto}://${forwardedHost}`;

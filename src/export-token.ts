@@ -52,7 +52,7 @@ export async function generateExportToken(sessionId: string, secret: Uint8Array,
  */
 export async function verifyExportToken(token: string, secret: Uint8Array): Promise<string | null> {
   try {
-    const { payload } = await jose.jwtVerify(token, secret, { audience: EXPORT_AUDIENCE });
+    const { payload } = await jose.jwtVerify(token, secret, { audience: EXPORT_AUDIENCE, algorithms: [ALG] });
     const sid = payload["sid"];
     if (typeof sid !== "string") return null;
     return sid;

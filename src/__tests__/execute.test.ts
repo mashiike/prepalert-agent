@@ -1,6 +1,35 @@
 import { describe, test, expect } from "bun:test";
-import { buildSystemPrompt, RUNBOOK_AGENT_PREFIX } from "../commands/execute.js";
+import type { SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  buildSystemPrompt,
+  RUNBOOK_AGENT_PREFIX,
+  RunbookReportTracker,
+  extractToolResultId,
+  extractTextFromUserMessage,
+} from "../commands/execute.js";
+import { NullLogger } from "../logger.js";
+import type { TranscriptWriter } from "../transcript.js";
 import type { Project } from "../project.js";
+
+function makeAssistantAgentCall(id: string, subagentType: string): SDKMessage {
+  return {
+    type: "assistant",
+    message: {
+      content: [
+        { type: "tool_use", id, name: "Agent", input: { subagent_type: subagentType } },
+      ],
+    },
+  } as unknown as SDKMessage;
+}
+
+function makeUserToolResult(toolUseId: string, content: unknown): SDKUserMessage {
+  return {
+    type: "user",
+    message: {
+      content: [{ type: "tool_result", tool_use_id: toolUseId, content }],
+    },
+  } as unknown as SDKUserMessage;
+}
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -92,5 +121,118 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(makeProject());
     expect(prompt).toContain("Resource Awareness");
     expect(prompt).toContain("Turn N/M");
+  });
+});
+
+describe("extractToolResultId", () => {
+  test("returns tool_use_id of the first tool_result block", () => {
+    const message = makeUserToolResult("toolu_123", "result");
+    expect(extractToolResultId(message)).toBe("toolu_123");
+  });
+
+  test("returns null for string content", () => {
+    const message = { type: "user", message: { content: "plain text" } } as unknown as SDKUserMessage;
+    expect(extractToolResultId(message)).toBeNull();
+  });
+
+  test("returns null when no tool_result block exists", () => {
+    const message = {
+      type: "user",
+      message: { content: [{ type: "text", text: "hello" }] },
+    } as unknown as SDKUserMessage;
+    expect(extractToolResultId(message)).toBeNull();
+  });
+});
+
+describe("extractTextFromUserMessage", () => {
+  test("returns string content as-is", () => {
+    const message = { type: "user", message: { content: "plain text" } } as unknown as SDKUserMessage;
+    expect(extractTextFromUserMessage(message)).toBe("plain text");
+  });
+
+  test("extracts text from tool_result with string content", () => {
+    const message = makeUserToolResult("toolu_1", "report body");
+    expect(extractTextFromUserMessage(message)).toBe("report body");
+  });
+
+  test("extracts and joins text from tool_result with nested text blocks", () => {
+    const message = makeUserToolResult("toolu_1", [
+      { type: "text", text: "part one " },
+      { type: "text", text: "part two" },
+    ]);
+    expect(extractTextFromUserMessage(message)).toBe("part one part two");
+  });
+
+  test("extracts top-level text blocks", () => {
+    const message = {
+      type: "user",
+      message: { content: [{ type: "text", text: "hello" }] },
+    } as unknown as SDKUserMessage;
+    expect(extractTextFromUserMessage(message)).toBe("hello");
+  });
+
+  test("returns null when no text is present", () => {
+    const message = {
+      type: "user",
+      message: { content: [{ type: "image", source: {} }] },
+    } as unknown as SDKUserMessage;
+    expect(extractTextFromUserMessage(message)).toBeNull();
+  });
+});
+
+describe("RunbookReportTracker", () => {
+  function makeFakeWriter(): { writer: TranscriptWriter; calls: { runbookId: string; toolUseId: string; content: string }[] } {
+    const calls: { runbookId: string; toolUseId: string; content: string }[] = [];
+    const writer = {
+      write: () => {},
+      close: async () => {},
+      writeRunbookReport: async (runbookId: string, toolUseId: string, content: string) => {
+        calls.push({ runbookId, toolUseId, content });
+      },
+    } as unknown as TranscriptWriter;
+    return { writer, calls };
+  }
+
+  test("saves the result of a runbook agent call as a runbook report", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCall("toolu_1", `${RUNBOOK_AGENT_PREFIX}web-api/5xx`));
+    tracker.handleMessage(makeUserToolResult("toolu_1", "# Investigation result"));
+    await tracker.flush();
+
+    expect(calls).toEqual([
+      { runbookId: "web-api/5xx", toolUseId: "toolu_1", content: "# Investigation result" },
+    ]);
+  });
+
+  test("ignores non-runbook agent calls", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCall("toolu_2", "Explore"));
+    tracker.handleMessage(makeUserToolResult("toolu_2", "explore result"));
+    await tracker.flush();
+
+    expect(calls).toEqual([]);
+  });
+
+  test("ignores tool results without a pending runbook call", async () => {
+    const { writer, calls } = makeFakeWriter();
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeUserToolResult("toolu_unknown", "orphan result"));
+    await tracker.flush();
+
+    expect(calls).toEqual([]);
+  });
+
+  test("does nothing when the writer does not support runbook reports", async () => {
+    const writer = { write: () => {}, close: async () => {} } as unknown as TranscriptWriter;
+    const tracker = new RunbookReportTracker(writer, new NullLogger());
+
+    tracker.handleMessage(makeAssistantAgentCall("toolu_3", `${RUNBOOK_AGENT_PREFIX}db/conn`));
+    tracker.handleMessage(makeUserToolResult("toolu_3", "result"));
+    await tracker.flush();
   });
 });

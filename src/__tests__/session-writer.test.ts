@@ -2,7 +2,7 @@ import { describe, test, expect, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SessionWriter } from "../session-writer.js";
+import { SessionWriter, validateArtifactName, validateArtifactSize, MAX_ARTIFACT_SIZE } from "../session-writer.js";
 import type { SessionStorage, SessionMetadata, ListSessionsResult, ExportUrlResult } from "../storage.js";
 import type { TranscriptWriter } from "../transcript.js";
 
@@ -258,11 +258,57 @@ describe("SessionWriter", () => {
     });
   });
 
+  test("writeArtifact with traversal name stays inside artifacts dir", async () => {
+    const dir = makeTempDir();
+    const writer = new SessionWriter(dir, null);
+    const data = new TextEncoder().encode("x");
+    await writer.writeArtifact("../../escape.txt", data);
+
+    expect(existsSync(join(writer.sessionDir, "artifacts", "escape.txt"))).toBe(true);
+    expect(existsSync(join(writer.sessionDir, "escape.txt"))).toBe(false);
+    expect(existsSync(join(dir, "escape.txt"))).toBe(false);
+    await writer.close();
+  });
+
   test("each writer gets unique session directory", () => {
     const dir = makeTempDir();
     const w1 = new SessionWriter(dir, null);
     const w2 = new SessionWriter(dir, null);
     expect(w1.sessionId).not.toBe(w2.sessionId);
     expect(w1.sessionDir).not.toBe(w2.sessionDir);
+  });
+});
+
+describe("validateArtifactName", () => {
+  test("accepts a plain file name", () => {
+    expect(validateArtifactName("data.csv")).toBe("data.csv");
+  });
+
+  test("strips directory components from traversal paths", () => {
+    expect(validateArtifactName("../../etc/passwd")).toBe("passwd");
+    expect(validateArtifactName("dir/sub/file.txt")).toBe("file.txt");
+    expect(validateArtifactName("/absolute/path.md")).toBe("path.md");
+  });
+
+  test("rejects empty and dot-only names", () => {
+    expect(() => validateArtifactName("")).toThrow("invalid artifact name");
+    expect(() => validateArtifactName(".")).toThrow("invalid artifact name");
+    expect(() => validateArtifactName("..")).toThrow("invalid artifact name");
+    expect(() => validateArtifactName("a/..")).toThrow("invalid artifact name");
+  });
+
+  test("rejects dotfiles", () => {
+    expect(() => validateArtifactName(".hidden")).toThrow("invalid artifact name");
+    expect(() => validateArtifactName("dir/.env")).toThrow("invalid artifact name");
+  });
+});
+
+describe("validateArtifactSize", () => {
+  test("accepts content at the size limit", () => {
+    validateArtifactSize(new Uint8Array(MAX_ARTIFACT_SIZE));
+  });
+
+  test("rejects content over the size limit", () => {
+    expect(() => validateArtifactSize(new Uint8Array(MAX_ARTIFACT_SIZE + 1))).toThrow("artifact too large");
   });
 });

@@ -35,7 +35,7 @@ async function discoverOidcEndpoints(issuer: string): Promise<OidcEndpoints> {
   if (cached) return cached;
 
   const url = `${issuer.replace(/\/$/, "")}/.well-known/openid-configuration`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) {
     throw new Error(`OIDC discovery failed: ${res.status} ${res.statusText}`);
   }
@@ -93,7 +93,7 @@ async function signState(payload: Record<string, string>, secret: Uint8Array): P
 
 async function verifyState(token: string, secret: Uint8Array): Promise<Record<string, string> | null> {
   try {
-    const { payload } = await jose.jwtVerify(token, secret);
+    const { payload } = await jose.jwtVerify(token, secret, { algorithms: ["HS256"] });
     return payload as Record<string, string>;
   } catch {
     return null;
@@ -171,6 +171,7 @@ export async function handleCallback(request: Request, config: OidcConfig, logge
 
   const tokenRes = await fetch(endpoints.tokenEndpoint, {
     method: "POST",
+    signal: AbortSignal.timeout(10000),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "authorization_code",
@@ -269,7 +270,7 @@ export async function verifySession(request: Request, config: OidcConfig): Promi
   const token = parseCookie(request, SESSION_COOKIE_NAME);
   if (!token) return null;
   try {
-    const { payload } = await jose.jwtVerify(token, config.sessionSecret, { audience: SESSION_AUDIENCE });
+    const { payload } = await jose.jwtVerify(token, config.sessionSecret, { audience: SESSION_AUDIENCE, algorithms: ["HS256"] });
     const email = payload["email"];
     const sub = payload["sub"];
     if (typeof email !== "string" || typeof sub !== "string") return null;

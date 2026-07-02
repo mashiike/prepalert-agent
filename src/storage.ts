@@ -190,34 +190,39 @@ class S3SessionStorage implements SessionStorage {
     return result;
   }
 
+  private async listAllKeys(prefix: string): Promise<string[]> {
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: prefix,
+        ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
+      });
+      const response = await this.client.send(command);
+      for (const obj of response.Contents ?? []) {
+        if (obj.Key) keys.push(obj.Key);
+      }
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return keys;
+  }
+
   /**
    * Lists all session IDs by finding metadata.json files under the prefix.
    * Uses S3 ListObjectsV2 with suffix filtering on key names.
    */
   private async collectAllSessionIds(): Promise<string[]> {
     const ids: string[] = [];
-    let continuationToken: string | undefined;
-
-    do {
-      const command = new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: this.prefix,
-        ...(continuationToken ? { ContinuationToken: continuationToken } : {}),
-      });
-      const response = await this.client.send(command);
-
-      for (const obj of response.Contents ?? []) {
-        const key = obj.Key;
-        if (!key || !key.endsWith("/metadata.json")) continue;
-        const relative = key.slice(this.prefix.length);
-        const parts = relative.split("/");
-        const sessionId = parts[parts.length - 2];
-        if (sessionId) ids.push(sessionId);
-      }
-
-      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-    } while (continuationToken);
-
+    for (const key of await this.listAllKeys(this.prefix)) {
+      if (!key.endsWith("/metadata.json")) continue;
+      const relative = key.slice(this.prefix.length);
+      const parts = relative.split("/");
+      const sessionId = parts[parts.length - 2];
+      if (sessionId) ids.push(sessionId);
+    }
     return ids;
   }
 
@@ -269,16 +274,10 @@ class S3SessionStorage implements SessionStorage {
 
   async listArtifacts(id: string): Promise<string[]> {
     const artifactsPrefix = this.sessionKey(id, "artifacts/");
-    const command = new ListObjectsV2Command({
-      Bucket: this.bucket,
-      Prefix: artifactsPrefix,
-    });
     try {
-      const response = await this.client.send(command);
       const names: string[] = [];
-      for (const obj of response.Contents ?? []) {
-        if (!obj.Key) continue;
-        const name = obj.Key.slice(artifactsPrefix.length);
+      for (const key of await this.listAllKeys(artifactsPrefix)) {
+        const name = key.slice(artifactsPrefix.length);
         if (name) names.push(name);
       }
       return names;
@@ -294,17 +293,11 @@ class S3SessionStorage implements SessionStorage {
 
   async listRunbooks(id: string): Promise<RunbookEntry[]> {
     const prefix = this.sessionKey(id, "runbooks/");
-    const command = new ListObjectsV2Command({
-      Bucket: this.bucket,
-      Prefix: prefix,
-    });
     try {
-      const response = await this.client.send(command);
       const entries: RunbookEntry[] = [];
       const seen = new Set<string>();
-      for (const obj of response.Contents ?? []) {
-        if (!obj.Key) continue;
-        const rel = obj.Key.slice(prefix.length);
+      for (const key of await this.listAllKeys(prefix)) {
+        const rel = key.slice(prefix.length);
         const match = rel.match(/^([^/]+)\/([^/]+)\/report\.md$/);
         if (match && match[1] && match[2]) {
           const key = `${match[1]}/${match[2]}`;
@@ -368,19 +361,12 @@ class S3SessionStorage implements SessionStorage {
   async exportAsZip(id: string): Promise<Uint8Array> {
     const partition = sessionIdToDatePartition(id);
     const sessionPrefix = `${this.prefix}${partition}/${id}/`;
-    const listCmd = new ListObjectsV2Command({
-      Bucket: this.bucket,
-      Prefix: sessionPrefix,
-    });
-
-    const response = await this.client.send(listCmd);
     const files: Record<string, Uint8Array> = {};
 
-    for (const obj of response.Contents ?? []) {
-      if (!obj.Key) continue;
-      const relativePath = obj.Key.slice(sessionPrefix.length);
+    for (const key of await this.listAllKeys(sessionPrefix)) {
+      const relativePath = key.slice(sessionPrefix.length);
       if (!relativePath || relativePath === "export.zip") continue;
-      const body = await this.getObject(obj.Key);
+      const body = await this.getObject(key);
       if (body) {
         files[relativePath] = body;
       }

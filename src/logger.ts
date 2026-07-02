@@ -22,7 +22,12 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 function formatEntry(level: LogLevel, msg: string, fields?: LogFields): string {
-  return JSON.stringify({ ...fields, time: new Date().toISOString(), level, msg });
+  try {
+    return JSON.stringify({ ...fields, time: new Date().toISOString(), level, msg });
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return JSON.stringify({ time: new Date().toISOString(), level, msg, serializationError: reason });
+  }
 }
 
 export interface FileLoggerOptions {

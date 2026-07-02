@@ -218,6 +218,7 @@ session (session.id, session.cost_usd)
 | [telemetry.md](docs/spec/ja/telemetry.md) | OpenTelemetry の詳細 |
 | [init.md](docs/spec/ja/init.md) | init コマンドの仕様 |
 | [install-skills.md](docs/spec/ja/install-skills.md) | skills コマンドの仕様 |
+| [deployment.md](docs/spec/ja/deployment.md) | デプロイガイド（ECS / Cloud Run / Lambda 等） |
 
 ## 開発
 
