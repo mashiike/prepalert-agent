@@ -38,7 +38,7 @@ describe("FileLogger", () => {
   test("writes JSON Lines to file", () => {
     const dir = makeTmpDir();
     dirs.push(dir);
-    const logger = new FileLogger(dir, "debug", 1);
+    const logger = new FileLogger(dir, "debug", { flushThreshold: 1 });
     captureStderr(() => logger.info("hello", { key: "value" }));
     logger.flush();
 
@@ -55,7 +55,7 @@ describe("FileLogger", () => {
   test("respects log level for file output", () => {
     const dir = makeTmpDir();
     dirs.push(dir);
-    const logger = new FileLogger(dir, "warn", 1);
+    const logger = new FileLogger(dir, "warn", { flushThreshold: 1 });
     captureStderr(() => {
       logger.debug("debug");
       logger.info("info");
@@ -76,7 +76,7 @@ describe("FileLogger", () => {
   test("outputs warn and error to stderr regardless of file log level", () => {
     const dir = makeTmpDir();
     dirs.push(dir);
-    const logger = new FileLogger(dir, "debug", 100);
+    const logger = new FileLogger(dir, "debug", { flushThreshold: 100 });
     const output = captureStderr(() => {
       logger.debug("debug");
       logger.info("info");
@@ -92,7 +92,7 @@ describe("FileLogger", () => {
   test("flushes when threshold reached", () => {
     const dir = makeTmpDir();
     dirs.push(dir);
-    const logger = new FileLogger(dir, "debug", 2);
+    const logger = new FileLogger(dir, "debug", { flushThreshold: 2 });
     logger.info("one");
     logger.info("two");
 
@@ -105,7 +105,7 @@ describe("FileLogger", () => {
   test("flush is safe when buffer is empty", () => {
     const dir = makeTmpDir();
     dirs.push(dir);
-    const logger = new FileLogger(dir, "info", 100);
+    const logger = new FileLogger(dir, "info", { flushThreshold: 100 });
     logger.flush();
     const files = readdirSync(dir).filter(f => f.endsWith(".jsonl"));
     expect(files).toHaveLength(0);

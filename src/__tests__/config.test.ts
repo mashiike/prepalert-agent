@@ -104,6 +104,10 @@ describe("expandEnvVars", () => {
     test("returns empty when variable is not set", () => {
       expect(expandEnvVars("${UNSET_VAR+alternate}")).toBe("");
     });
+
+    test("picks the leftmost operator when alternate value starts with a minus", () => {
+      expect(expandEnvVars("${TEST_VAR+-x}")).toBe("-x");
+    });
   });
 
   describe("error messages (:?)", () => {

@@ -91,6 +91,17 @@ describe("installSkills", () => {
     const results = await installSkills(dir, { force: true });
     expect(results.some(r => r.action === "installed")).toBe(true);
   });
+
+  test("force removes files no longer present in the new version", async () => {
+    const dir = await createTempDir();
+    await installSkills(dir, {});
+    const staleFile = join(dir, "prepalert-agent", "stale-leftover.md");
+    await writeFile(staleFile, "old content", "utf-8");
+    expect(await exists(staleFile)).toBe(true);
+
+    await installSkills(dir, { force: true });
+    expect(await exists(staleFile)).toBe(false);
+  });
 });
 
 describe("updateSkills", () => {
@@ -118,6 +129,22 @@ describe("updateSkills", () => {
     const dir = await createTempDir();
     const results = await updateSkills(dir, {});
     expect(results.some(r => r.action === "skipped" && r.message?.includes("no managed skills"))).toBe(true);
+  });
+
+  test("removes files no longer present in the new version", async () => {
+    const dir = await createTempDir();
+    await installSkills(dir, {});
+    const staleFile = join(dir, "prepalert-agent", "stale-leftover.md");
+    await writeFile(staleFile, "old content", "utf-8");
+    expect(await exists(staleFile)).toBe(true);
+
+    const metaPath = join(dir, ".prepalert-agent-skills.json");
+    const meta = JSON.parse(await readFile(metaPath, "utf-8"));
+    meta.skills["prepalert-agent"].version = "0.0.0";
+    await writeFile(metaPath, JSON.stringify(meta), "utf-8");
+
+    await updateSkills(dir, {});
+    expect(await exists(staleFile)).toBe(false);
   });
 });
 

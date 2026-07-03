@@ -49,9 +49,7 @@ function handleStaticDir(url: URL, staticDir: string): Response | null {
     if (s.isFile()) {
       return serveFile(filePath);
     }
-  } catch {
-    // fall through
-  }
+  } catch {}
 
   return null;
 }
@@ -366,7 +364,7 @@ td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text-dim);
       '</div>' +
       '<div class="detail-meta">' +
         '<span>Created <span style="color:var(--text-dim);font-family:monospace;">' + escapeHtml(s.createdAt) + '</span></span>' +
-        '<span>Status <span style="color:var(--text-dim);">' + escapeHtml(s.status) + '</span></span>' +
+        '<span>Status <span style="color:var(--text-dim);">' + escapeHtml(s.status || 'unknown') + '</span></span>' +
       '</div>' +
       '<div class="tabs" id="tabs"></div>';
     $('btn-copy-url')?.addEventListener('click', () => {

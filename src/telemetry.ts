@@ -84,13 +84,20 @@ function getOTelLogger(): OTelApiLogger {
   return logs.getLogger(SERVICE_NAME);
 }
 
+function toAttributeValue(value: unknown): string | number | boolean | undefined {
+  if (value === undefined || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
 function emitOTelLog(level: LogLevel, msg: string, fields?: LogFields): void {
   if (!enabled) return;
   getOTelLogger().emit({
     severityNumber: LOG_LEVEL_TO_SEVERITY[level],
     severityText: level.toUpperCase(),
     body: msg,
-    attributes: fields as Record<string, string | number | boolean | undefined>,
+    ...(fields ? { attributes: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, toAttributeValue(value)])) } : {}),
   });
 }
 

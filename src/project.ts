@@ -136,7 +136,7 @@ export interface Project {
 }
 
 function parseFrontmatter(content: string): { meta: Record<string, unknown>; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) {
     return { meta: {}, body: content };
   }
@@ -221,18 +221,23 @@ async function loadMcpConfig(projectDir: string, mcpConfigPath: string): Promise
     }
     throw new Error(`Cannot read ${configPath}: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
   }
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object") {
-      throw new Error(`Invalid MCP config: ${configPath} is not a JSON object`);
-    }
-    return parsed as McpConfig;
+    parsed = JSON.parse(raw);
   } catch (e) {
     if (e instanceof SyntaxError) {
       throw new Error(`Invalid JSON in ${configPath}: ${e.message}`, { cause: e });
     }
     throw e;
   }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`Invalid MCP config: ${configPath} is not a JSON object`);
+  }
+  const mcpServers = (parsed as Record<string, unknown>)["mcpServers"];
+  if (mcpServers === null || typeof mcpServers !== "object" || Array.isArray(mcpServers)) {
+    throw new Error(`Invalid MCP config: "mcpServers" in ${configPath} must be an object`);
+  }
+  return { mcpServers: mcpServers as Record<string, McpServerConfig> };
 }
 
 function toStringArray(value: unknown): string[] | undefined {

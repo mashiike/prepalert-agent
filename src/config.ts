@@ -71,17 +71,20 @@ type VarExpression = {
 
 function parseVarExpression(expr: string): VarExpression {
   const operators = [":-", ":+", ":?", "-", "+", "?"] as const;
+  let best: { idx: number; op: (typeof operators)[number] } | undefined;
   for (const op of operators) {
     const idx = expr.indexOf(op);
-    if (idx > 0) {
-      return {
-        name: expr.slice(0, idx),
-        operator: op,
-        operand: expr.slice(idx + op.length),
-      };
+    if (idx <= 0) continue;
+    if (!best || idx < best.idx || (idx === best.idx && op.length > best.op.length)) {
+      best = { idx, op };
     }
   }
-  return { name: expr, operator: "none", operand: "" };
+  if (!best) return { name: expr, operator: "none", operand: "" };
+  return {
+    name: expr.slice(0, best.idx),
+    operator: best.op,
+    operand: expr.slice(best.idx + best.op.length),
+  };
 }
 
 export function expandEnvVarsInObject<T>(obj: T): T {

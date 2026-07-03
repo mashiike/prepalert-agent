@@ -1,4 +1,4 @@
-import { access, appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -122,51 +122,67 @@ export async function initProject(projectDir: string): Promise<InitResult> {
     return result;
   }
 
-  const projectName = basename(dir);
-  await writeFile(configPath, generatePrepalertYaml(projectName), "utf-8");
-  result.created.push("prepalert.yaml");
+  const cleanupPaths: string[] = [];
+  try {
+    const projectName = basename(dir);
+    await writeFile(configPath, generatePrepalertYaml(projectName), "utf-8");
+    cleanupPaths.push(configPath);
+    result.created.push("prepalert.yaml");
 
-  const mcpConfigPath = join(dir, ".mcp.json");
-  if (await exists(mcpConfigPath)) {
-    result.skipped.push(".mcp.json (already exists)");
-  } else {
-    await writeFile(mcpConfigPath, MCP_JSON_TEMPLATE, "utf-8");
-    result.created.push(".mcp.json");
-  }
+    const mcpConfigPath = join(dir, ".mcp.json");
+    if (await exists(mcpConfigPath)) {
+      result.skipped.push(".mcp.json (already exists)");
+    } else {
+      await writeFile(mcpConfigPath, MCP_JSON_TEMPLATE, "utf-8");
+      cleanupPaths.push(mcpConfigPath);
+      result.created.push(".mcp.json");
+    }
 
-  const exampleDir = join(dir, "runbooks", "example");
-  const exampleRunbook = join(exampleDir, "5xx-rate.md");
-  if (await exists(exampleDir)) {
-    result.skipped.push("runbooks/example/ (already exists)");
-  } else {
-    await mkdir(exampleDir, { recursive: true });
-    await writeFile(exampleRunbook, EXAMPLE_RUNBOOK, "utf-8");
-    result.created.push("runbooks/example/5xx-rate.md");
-  }
+    const exampleDir = join(dir, "runbooks", "example");
+    const exampleRunbook = join(exampleDir, "5xx-rate.md");
+    if (await exists(exampleDir)) {
+      result.skipped.push("runbooks/example/ (already exists)");
+    } else {
+      await mkdir(exampleDir, { recursive: true });
+      await writeFile(exampleRunbook, EXAMPLE_RUNBOOK, "utf-8");
+      cleanupPaths.push(exampleDir);
+      result.created.push("runbooks/example/5xx-rate.md");
+    }
 
-  const gitignorePath = join(dir, ".gitignore");
-  if (await exists(gitignorePath)) {
-    const content = await readFile(gitignorePath, "utf-8");
-    const missing = GITIGNORE_ENTRIES.filter((entry) => !content.includes(entry));
-    if (missing.length > 0) {
-      const isTTY = process.stdin.isTTY === true;
-      let shouldAppend = !isTTY;
-      if (isTTY) {
-        shouldAppend = await confirm(`Add ${missing.join(", ")} to .gitignore?`);
-      }
-      if (shouldAppend) {
-        const suffix = content.endsWith("\n") ? "" : "\n";
-        await appendFile(gitignorePath, `${suffix}# prepalert-agent\n${missing.join("\n")}\n`, "utf-8");
-        result.created.push(`.gitignore (appended: ${missing.join(", ")})`);
+    const gitignorePath = join(dir, ".gitignore");
+    if (await exists(gitignorePath)) {
+      const content = await readFile(gitignorePath, "utf-8");
+      const missing = GITIGNORE_ENTRIES.filter((entry) => !content.includes(entry));
+      if (missing.length > 0) {
+        const isTTY = process.stdin.isTTY === true;
+        let shouldAppend = !isTTY;
+        if (isTTY) {
+          shouldAppend = await confirm(`Add ${missing.join(", ")} to .gitignore?`);
+        }
+        if (shouldAppend) {
+          const suffix = content.endsWith("\n") ? "" : "\n";
+          await appendFile(gitignorePath, `${suffix}# prepalert-agent\n${missing.join("\n")}\n`, "utf-8");
+          result.created.push(`.gitignore (appended: ${missing.join(", ")})`);
+        } else {
+          result.skipped.push(`.gitignore (${missing.join(", ")} not added)`);
+        }
       } else {
-        result.skipped.push(`.gitignore (${missing.join(", ")} not added)`);
+        result.skipped.push(".gitignore (already contains logs/ and sessions/)");
       }
     } else {
-      result.skipped.push(".gitignore (already contains logs/ and sessions/)");
+      await writeFile(gitignorePath, GITIGNORE_TEMPLATE, "utf-8");
+      cleanupPaths.push(gitignorePath);
+      result.created.push(".gitignore");
     }
-  } else {
-    await writeFile(gitignorePath, GITIGNORE_TEMPLATE, "utf-8");
-    result.created.push(".gitignore");
+  } catch (e) {
+    for (const p of cleanupPaths.reverse()) {
+      await rm(p, { recursive: true, force: true }).catch(() => {});
+    }
+    return {
+      created: [],
+      skipped: [],
+      errors: [`initialization failed and was rolled back: ${e instanceof Error ? e.message : String(e)}`],
+    };
   }
 
   return result;

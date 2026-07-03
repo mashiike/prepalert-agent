@@ -1,13 +1,10 @@
-# Project name (used for logging and identification)
+# See docs/spec/ja/project-config.md for the full field reference.
 name: acme-api
 
-# Model for the agent to use
 model: haiku
 
-# Maximum number of turns per agent execution
 maxTurns: 10
 
-# Cost limit per execution in USD
 costLimit: 1.0
 
 instructions: |
@@ -25,6 +22,7 @@ instructions: |
   - When investigating alerts, first check Mackerel for alert details, then look at CloudWatch Logs
   - For database-related issues, check RDS metrics via CloudWatch
   - For cache-related issues, check ElastiCache metrics via CloudWatch
+  - See references/service-map.md for the full component list and request flow
 
 serve:
   port: 8080

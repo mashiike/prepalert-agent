@@ -256,6 +256,33 @@ describe("SessionWriter", () => {
       expect(storageWrite!.args[1]).toBe("toolu_xyz");
       await writer.close();
     });
+
+    test("rejects a runbook ID that resolves to '..'", async () => {
+      const dir = makeTempDir();
+      const writer = new SessionWriter(dir, null);
+      await expect(writer.writeRunbookReport("..", "toolu_abc", "# Report")).rejects.toThrow(
+        "invalid runbook id",
+      );
+      await writer.close();
+    });
+
+    test("rejects a runbook ID that resolves to '.'", async () => {
+      const dir = makeTempDir();
+      const writer = new SessionWriter(dir, null);
+      await expect(writer.writeRunbookReport(".", "toolu_abc", "# Report")).rejects.toThrow(
+        "invalid runbook id",
+      );
+      await writer.close();
+    });
+
+    test("rejects an empty runbook ID", async () => {
+      const dir = makeTempDir();
+      const writer = new SessionWriter(dir, null);
+      await expect(writer.writeRunbookReport("", "toolu_abc", "# Report")).rejects.toThrow(
+        "invalid runbook id",
+      );
+      await writer.close();
+    });
   });
 
   test("writeArtifact with traversal name stays inside artifacts dir", async () => {

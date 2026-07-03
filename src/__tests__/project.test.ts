@@ -148,6 +148,24 @@ describe("loadProject", () => {
     await rm(dir, { recursive: true });
   });
 
+  test("throws when .mcp.json has no mcpServers key", async () => {
+    const dir = await createTempProject({
+      "prepalert.yaml": `name: test\n`,
+      ".mcp.json": JSON.stringify({}),
+    });
+    await expect(loadProject(dir)).rejects.toThrow('"mcpServers"');
+    await rm(dir, { recursive: true });
+  });
+
+  test("throws when .mcp.json mcpServers is not an object", async () => {
+    const dir = await createTempProject({
+      "prepalert.yaml": `name: test\n`,
+      ".mcp.json": JSON.stringify({ foo: 1 }),
+    });
+    await expect(loadProject(dir)).rejects.toThrow('"mcpServers"');
+    await rm(dir, { recursive: true });
+  });
+
   test("loads runbooks recursively from nested directories", async () => {
     const dir = await createTempProject({
       "prepalert.yaml": `name: test\n`,
@@ -169,6 +187,17 @@ describe("loadProject", () => {
     const project = await loadProject(dir);
     expect(project.runbooks[0]!.meta.description).toBe("");
     expect(project.runbooks[0]!.body).toBe("Just do the thing.");
+    await rm(dir, { recursive: true });
+  });
+
+  test("runbook frontmatter with CRLF line endings is parsed", async () => {
+    const dir = await createTempProject({
+      "prepalert.yaml": `name: test\n`,
+      "runbooks/crlf.md": `---\r\ndescription: crlf runbook\r\n---\r\n\r\nCheck logs.`,
+    });
+    const project = await loadProject(dir);
+    expect(project.runbooks[0]!.meta.description).toBe("crlf runbook");
+    expect(project.runbooks[0]!.body).toBe("Check logs.");
     await rm(dir, { recursive: true });
   });
 

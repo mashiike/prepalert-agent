@@ -1,6 +1,6 @@
-import { mkdirSync, appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, basename } from "node:path";
-import { MAX_BUFFER_LINES } from "./transcript.js";
+import { JsonlAppendBuffer } from "./transcript.js";
 import type { TranscriptEvent, TranscriptWriter } from "./transcript.js";
 import type { SessionStorage, SessionMetadata } from "./storage.js";
 import { createSessionDir } from "./storage.js";
@@ -22,8 +22,7 @@ export class SessionWriter implements TranscriptWriter {
   readonly sessionId: string;
   readonly sessionDir: string;
   private readonly storage: SessionStorage | null;
-  private buffer: string[] = [];
-  private readonly flushThreshold: number;
+  private readonly jsonl: JsonlAppendBuffer;
   private readonly logger: Logger | undefined;
   private closed = false;
   private readonly transcriptPath: string;
@@ -36,8 +35,8 @@ export class SessionWriter implements TranscriptWriter {
 
     this.transcriptPath = join(this.sessionDir, "transcript.jsonl");
     this.storage = storage;
-    this.flushThreshold = opts?.flushThreshold ?? 10;
     this.logger = opts?.logger;
+    this.jsonl = new JsonlAppendBuffer(this.transcriptPath, opts?.flushThreshold ?? 10, this.logger);
   }
 
   /** TranscriptWriter.write — buffers transcript events locally. */
@@ -47,10 +46,7 @@ export class SessionWriter implements TranscriptWriter {
 
   writeTranscriptEvent(event: TranscriptEvent): void {
     if (this.closed) return;
-    this.buffer.push(JSON.stringify(event));
-    if (this.buffer.length >= this.flushThreshold) {
-      this.flushBuffer();
-    }
+    this.jsonl.push(event);
   }
 
   async writeReport(content: string): Promise<void> {
@@ -89,6 +85,9 @@ export class SessionWriter implements TranscriptWriter {
    */
   async writeRunbookReport(runbookId: string, toolUseId: string, content: string): Promise<void> {
     const safeRunbookId = runbookId.replace(/\//g, "--");
+    if (!safeRunbookId || safeRunbookId === "." || safeRunbookId === "..") {
+      throw new Error(`invalid runbook id: ${runbookId}`);
+    }
     const safeToolUseId = validateArtifactName(toolUseId);
     const reportDir = join(this.sessionDir, "runbooks", safeRunbookId, safeToolUseId);
     mkdirSync(reportDir, { recursive: true });
@@ -107,7 +106,7 @@ export class SessionWriter implements TranscriptWriter {
   async finalize(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    this.flushBuffer();
+    this.jsonl.flush();
 
     if (this.storage) {
       try {
@@ -119,27 +118,6 @@ export class SessionWriter implements TranscriptWriter {
         }
         const msg = e instanceof Error ? e.message : String(e);
         this.logger?.warn("failed to upload transcript to storage", { sessionId: this.sessionId, error: msg });
-      }
-    }
-  }
-
-  private flushBuffer(): void {
-    if (this.buffer.length === 0) return;
-    const lines = this.buffer;
-    this.buffer = [];
-    try {
-      appendFileSync(this.transcriptPath, lines.join("\n") + "\n");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      this.logger?.warn("transcript write failed", { path: this.transcriptPath, error: msg });
-      this.buffer = [...lines, ...this.buffer];
-      if (this.buffer.length > MAX_BUFFER_LINES) {
-        const dropped = this.buffer.length - MAX_BUFFER_LINES;
-        this.buffer = this.buffer.slice(dropped);
-        this.logger?.warn("transcript buffer overflow, dropping oldest events", {
-          path: this.transcriptPath,
-          dropped,
-        });
       }
     }
   }

@@ -158,8 +158,12 @@ export async function installSkills(targetDir: string, options: { dryRun?: boole
       continue;
     }
 
+    const skillDir = join(targetDir, skill.name);
+    if (existing) {
+      await rm(skillDir, { recursive: true, force: true });
+    }
     for (const file of skill.files) {
-      const dest = join(targetDir, skill.name, file.relativePath);
+      const dest = join(skillDir, file.relativePath);
       await mkdir(dirname(dest), { recursive: true });
       await writeFile(dest, file.content, "utf-8");
     }
@@ -196,8 +200,10 @@ export async function updateSkills(targetDir: string, options: { dryRun?: boolea
       continue;
     }
 
+    const skillDir = join(targetDir, skill.name);
+    await rm(skillDir, { recursive: true, force: true });
     for (const file of skill.files) {
-      const dest = join(targetDir, skill.name, file.relativePath);
+      const dest = join(skillDir, file.relativePath);
       await mkdir(dirname(dest), { recursive: true });
       await writeFile(dest, file.content, "utf-8");
     }

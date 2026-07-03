@@ -8,7 +8,28 @@ This is the successor to [prepalert](https://github.com/mashiike/prepalert) — 
 
 ## Installation
 
-Download the binary from [GitHub Releases](https://github.com/mashiike/prepalert-agent/releases).
+Download the archive for your platform from [GitHub Releases](https://github.com/mashiike/prepalert-agent/releases):
+
+| Platform | Archive |
+|---|---|
+| Linux (x86_64) | `prepalert-agent_linux_amd64.tar.gz` |
+| Linux (arm64) | `prepalert-agent_linux_arm64.tar.gz` |
+| macOS (Intel) | `prepalert-agent_darwin_amd64.tar.gz` |
+| macOS (Apple Silicon) | `prepalert-agent_darwin_arm64.tar.gz` |
+
+Each release also includes a `checksums.txt` with SHA-256 sums for all archives. Verify and extract:
+
+```bash
+VERSION=v0.1.0 # replace with the version you downloaded
+ARCHIVE=prepalert-agent_linux_amd64.tar.gz
+
+curl -LO https://github.com/mashiike/prepalert-agent/releases/download/${VERSION}/${ARCHIVE}
+curl -LO https://github.com/mashiike/prepalert-agent/releases/download/${VERSION}/checksums.txt
+sha256sum --ignore-missing -c checksums.txt
+
+tar xzf ${ARCHIVE}
+./prepalert-agent --version
+```
 
 Or build from source:
 

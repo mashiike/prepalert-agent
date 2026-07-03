@@ -42,14 +42,12 @@ export class RunbookReportTracker {
         }
       }
     } else if (message.type === "user") {
-      const toolUseId = extractToolResultId(message);
-      if (!toolUseId) return;
-      const pending = this.pendingAgentCalls.get(toolUseId);
-      if (pending) {
+      for (const { toolUseId, text } of extractToolResults(message)) {
+        const pending = this.pendingAgentCalls.get(toolUseId);
+        if (!pending) continue;
         this.pendingAgentCalls.delete(toolUseId);
-        const resultText = extractTextFromUserMessage(message);
-        if (resultText && this.writer) {
-          const p = this.writer.writeRunbookReport(pending.runbookId, pending.toolUseId, resultText).catch(e => {
+        if (text && this.writer) {
+          const p = this.writer.writeRunbookReport(pending.runbookId, pending.toolUseId, text).catch(e => {
             const msg = e instanceof Error ? e.message : String(e);
             this.logger.warn("failed to save runbook report", { runbookId: pending.runbookId, toolUseId: pending.toolUseId, error: msg });
           });
@@ -65,48 +63,42 @@ export class RunbookReportTracker {
   }
 }
 
-/**
- * Extracts the tool_use_id of the first tool_result block in a user message.
- * Returns null when the message contains no tool_result block.
- */
-export function extractToolResultId(message: SDKUserMessage): string | null {
-  const content = message.message.content;
-  if (!Array.isArray(content)) return null;
-  for (const block of content) {
-    if (typeof block === "object" && block !== null && "type" in block && block.type === "tool_result" && "tool_use_id" in block) {
-      return block.tool_use_id as string;
-    }
-  }
-  return null;
+export interface ToolResultEntry {
+  toolUseId: string;
+  /** null when the tool_result has no text content (e.g. image-only). */
+  text: string | null;
 }
 
 /**
- * Concatenates all text content from a user message, including text nested
- * inside tool_result blocks. Returns null when no text is present.
+ * Extracts every tool_result block in a user message, pairing each one's
+ * tool_use_id with its own text content.
  */
-export function extractTextFromUserMessage(message: SDKUserMessage): string | null {
+export function extractToolResults(message: SDKUserMessage): ToolResultEntry[] {
   const content = message.message.content;
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return null;
-  const texts: string[] = [];
+  if (!Array.isArray(content)) return [];
+
+  const entries: ToolResultEntry[] = [];
   for (const block of content) {
     if (typeof block !== "object" || block === null || !("type" in block)) continue;
-    if (block.type === "text" && "text" in block) {
-      texts.push(block.text as string);
-    } else if (block.type === "tool_result" && "content" in block) {
-      const inner = block.content;
-      if (typeof inner === "string") {
-        texts.push(inner);
-      } else if (Array.isArray(inner)) {
-        for (const item of inner) {
-          if (typeof item === "object" && item !== null && "type" in item && item.type === "text" && "text" in item) {
-            texts.push(item.text as string);
-          }
+    if (block.type !== "tool_result" || !("tool_use_id" in block)) continue;
+
+    const inner = "content" in block ? block.content : undefined;
+    let text: string | null = null;
+    if (typeof inner === "string") {
+      text = inner;
+    } else if (Array.isArray(inner)) {
+      const texts: string[] = [];
+      for (const item of inner) {
+        if (typeof item === "object" && item !== null && "type" in item && item.type === "text" && "text" in item) {
+          texts.push(item.text as string);
         }
       }
+      text = texts.length > 0 ? texts.join("") : null;
     }
+
+    entries.push({ toolUseId: block.tool_use_id as string, text });
   }
-  return texts.length > 0 ? texts.join("") : null;
+  return entries;
 }
 
 function recordTranscript(writer: TranscriptWriter, message: SDKMessage): void {

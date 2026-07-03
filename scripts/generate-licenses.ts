@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -77,30 +77,54 @@ async function collectPackage(pkgDir: string): Promise<PkgInfo | undefined> {
   }
 }
 
-async function* walkScoped(dir: string): AsyncGenerator<string> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith("@")) {
-      const scopedDir = join(dir, entry.name);
-      const inner = await readdir(scopedDir, { withFileTypes: true });
-      for (const sub of inner) {
-        if (sub.isDirectory()) yield join(scopedDir, sub.name);
-      }
-    } else if (!entry.name.startsWith(".")) {
-      yield join(dir, entry.name);
+function packageDir(name: string): string {
+  return join(NODE_MODULES, ...name.split("/"));
+}
+
+/**
+ * Walks the production dependency tree starting from the root package.json's
+ * "dependencies" field, following each package's own "dependencies" and
+ * "optionalDependencies". devDependencies are never visited.
+ */
+async function collectProductionDependencies(): Promise<PkgInfo[]> {
+  const rootPkg = JSON.parse(await readFile(join(ROOT, "package.json"), "utf-8")) as Record<string, unknown>;
+  const rootDeps = Object.keys((rootPkg["dependencies"] as Record<string, string> | undefined) ?? {});
+
+  const visited = new Set<string>();
+  const packages: PkgInfo[] = [];
+  const queue = [...rootDeps];
+
+  while (queue.length > 0) {
+    const name = queue.shift()!;
+    if (visited.has(name)) continue;
+    visited.add(name);
+
+    const pkgDir = packageDir(name);
+    const info = await collectPackage(pkgDir);
+    if (!info) continue;
+    packages.push(info);
+
+    let raw: string;
+    try {
+      raw = await readFile(join(pkgDir, "package.json"), "utf-8");
+    } catch {
+      continue;
+    }
+    const pkg = JSON.parse(raw) as Record<string, unknown>;
+    const deps = {
+      ...(pkg["dependencies"] as Record<string, string> | undefined),
+      ...(pkg["optionalDependencies"] as Record<string, string> | undefined),
+    };
+    for (const dep of Object.keys(deps)) {
+      if (!visited.has(dep)) queue.push(dep);
     }
   }
+
+  return packages;
 }
 
 async function main() {
-  const packages: PkgInfo[] = [];
-
-  for await (const pkgDir of walkScoped(NODE_MODULES)) {
-    const info = await collectPackage(pkgDir);
-    if (info) packages.push(info);
-  }
-
+  const packages = await collectProductionDependencies();
   packages.sort((a, b) => a.name.localeCompare(b.name));
 
   const lines: string[] = [];

@@ -21,6 +21,8 @@ _examples/
 ├── prepalert.yaml         # Project configuration + instructions
 ├── .mcp.json              # MCP server configuration (Mackerel + AWS)
 ├── .gitignore             # Excludes logs/ and sessions/
+├── references/
+│   └── service-map.md     # Static service map read by the agent
 └── runbooks/
     ├── web-api/
     │   ├── 5xx-rate.md    # Triage: 5xx error rate spike
