@@ -12,6 +12,7 @@ import { createDocsCommand } from "./commands/docs.js";
 import { FileLogger, type LogLevel } from "./logger.js";
 import { LocalTranscriptWriter } from "./transcript.js";
 import { initTelemetry, shutdownTelemetry, isOTelEnabled, OTelLogger } from "./telemetry.js";
+import { resolveClaudeExecutablePath } from "./cli-options.js";
 
 const VALID_PERMISSION_MODES: PermissionMode[] = ["default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto"];
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -46,7 +47,8 @@ program
   .description("Alert response agent powered by Claude Agent SDK\nhttps://github.com/mashiike/prepalert-agent")
   .version(`${version} (bun ${bunVersion})`, "-v, --version")
   .option("--project-dir <dir>", "path to the alert response project directory (env: PREPALERT_PROJECT_DIR)", process.env["PREPALERT_PROJECT_DIR"] ?? ".")
-  .option("--log-level <level>", "log level: debug, info, warn, error (env: PREPALERT_LOG_LEVEL)");
+  .option("--log-level <level>", "log level: debug, info, warn, error (env: PREPALERT_LOG_LEVEL)")
+  .option("--claude-executable-path <path>", "path to the claude CLI executable (env: PREPALERT_CLAUDE_EXECUTABLE_PATH)");
 
 program
   .command("run", { isDefault: true })
@@ -57,6 +59,7 @@ program
   .action(async (opts, cmd) => {
     const globals = cmd.optsWithGlobals();
     const projectDir = globals.projectDir as string;
+    const claudeExecutablePath = resolveClaudeExecutablePath(globals.claudeExecutablePath as string | undefined);
     const project = await loadProjectOrExit(projectDir);
     const logsDir = join(project.dir, project.config.logsDir ?? "logs");
     const sessionsDir = join(project.dir, project.config.sessionsDir ?? "sessions");
@@ -71,7 +74,7 @@ program
       fileLogger.flush();
       const prompt = opts.p === "-" ? await readStdin() : opts.p as string;
       try {
-        const result = await executePrompt(project, prompt, { logger, transcriptWriter });
+        const result = await executePrompt(project, prompt, { logger, transcriptWriter, claudeExecutablePath });
         process.stdout.write(result.responseText);
         process.stdout.write("\n");
       } finally {
@@ -96,7 +99,7 @@ program
       logger.info("session created", { sessionId: transcriptWriter.sessionId, sessionDir: transcriptWriter.sessionDir });
       fileLogger.flush();
       try {
-        await executeInteractive(project, mode as PermissionMode, { logger, transcriptWriter });
+        await executeInteractive(project, mode as PermissionMode, { logger, transcriptWriter, claudeExecutablePath });
       } finally {
         fileLogger.flush();
         await shutdownTelemetry();
@@ -148,13 +151,14 @@ program
       process.exit(1);
     }
     const port = rawPort;
+    const claudeExecutablePath = resolveClaudeExecutablePath(globals.claudeExecutablePath as string | undefined);
     const logsDir = join(project.dir, project.config.logsDir ?? "logs");
     const sessionsDir = join(project.dir, project.config.sessionsDir ?? "sessions");
     const fileLogger = new FileLogger(logsDir, logLevel, { stderrAll: true });
     const logger = isOTelEnabled() ? new OTelLogger(fileLogger) : fileLogger;
     logger.info("starting", { command: "serve", version, project: project.config.name, projectDir: project.dir, port, logLevel });
     fileLogger.flush();
-    serveCommand(project, port, { logger, sessionsDir });
+    serveCommand(project, port, { logger, sessionsDir, claudeExecutablePath });
   });
 
 initTelemetry(version);

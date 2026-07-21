@@ -137,12 +137,13 @@ async function executeSession(
   sessionsDir: string,
   storage: SessionStorage | null,
   baseUrl?: string | undefined,
+  claudeExecutablePath?: string | undefined,
 ): Promise<void> {
   const writer = new SessionWriter(sessionsDir, storage, { logger });
   logger.info("session created", { sessionId: writer.sessionId, mode });
   await writer.writeMetadata({ createdAt: new Date().toISOString(), status: "running" });
   try {
-    const result = await executePrompt(project, prompt, { logger, transcriptWriter: writer, baseUrl });
+    const result = await executePrompt(project, prompt, { logger, transcriptWriter: writer, baseUrl, claudeExecutablePath });
     writeOutputMd(writer.sessionDir, result.responseText, logger);
     await writer.writeMetadata({ createdAt: new Date().toISOString(), status: result.isError ? "error" : "completed" });
   } catch (e) {
@@ -161,6 +162,7 @@ async function executeAsync(
   sessionsDir: string,
   storage: SessionStorage | null,
   baseUrl: string,
+  claudeExecutablePath: string | undefined,
   onStart: () => void,
   onEnd: () => void,
 ): Promise<void> {
@@ -170,7 +172,7 @@ async function executeAsync(
   }
   onStart();
   try {
-    await executeSession(project, prompt, "async", logger, sessionsDir, storage, baseUrl);
+    await executeSession(project, prompt, "async", logger, sessionsDir, storage, baseUrl, claudeExecutablePath);
   } finally {
     onEnd();
     if (useProtection) {
@@ -278,6 +280,7 @@ export function validateWebhooks(webhooks: WebhookConfig[], logger?: Logger | un
 export interface ServeCommandOptions {
   logger: Logger;
   sessionsDir: string;
+  claudeExecutablePath?: string | undefined;
 }
 
 export type DispatchFn = (config: DispatchConfig, request: Request, body: string, projectTimeout: string | undefined, dispatchSecret: Uint8Array, logger: Logger) => Promise<void>;
@@ -296,6 +299,7 @@ export interface ServeContext {
   handleSpaRequest: ReturnType<typeof createSpaHandler>;
   stats: { activeRequests: number; totalRequests: number; startTime: number };
   dispatch?: DispatchFn | undefined;
+  claudeExecutablePath?: string | undefined;
 }
 
 function resolveSessionsDir(configured: string, logger: Logger): string {
@@ -403,11 +407,12 @@ function initializeServeContext(project: Project, opts: ServeCommandOptions): Se
     oidcConfig,
     handleSpaRequest,
     stats: { activeRequests: 0, totalRequests: 0, startTime: Date.now() },
+    claudeExecutablePath: opts.claudeExecutablePath,
   };
 }
 
 export function createFetchHandler(ctx: ServeContext): (request: Request) => Promise<Response> {
-  const { project, serve, webhookMap, storage, remoteStorage, sessionsDir, logger, healthCheckConfig, exportSecret, oidcConfig, handleSpaRequest, stats } = ctx;
+  const { project, serve, webhookMap, storage, remoteStorage, sessionsDir, logger, healthCheckConfig, exportSecret, oidcConfig, handleSpaRequest, stats, claudeExecutablePath } = ctx;
   const doDispatch = ctx.dispatch ?? dispatchRequest;
 
   return async (request: Request): Promise<Response> => {
@@ -529,7 +534,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
     if (isSync) {
       stats.activeRequests++;
       try {
-        await executeSession(project, prompt, "sync", logger, sessionsDir, remoteStorage, baseUrl);
+        await executeSession(project, prompt, "sync", logger, sessionsDir, remoteStorage, baseUrl, claudeExecutablePath);
         logger.info("request", { method: request.method, path: url.pathname, status: 200, duration_ms: Date.now() - start });
         return new Response("OK", { status: 200 });
       } catch (err) {
@@ -550,6 +555,7 @@ export function createFetchHandler(ctx: ServeContext): (request: Request) => Pro
       sessionsDir,
       remoteStorage,
       baseUrl,
+      claudeExecutablePath,
       () => { stats.activeRequests++; },
       () => { stats.activeRequests--; },
     ).catch((err) => {

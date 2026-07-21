@@ -180,7 +180,7 @@ serve:
 
 - Lambda maximum execution time is 15 minutes. Set `timeout` shorter than this
 - **`sessionsDir` automatically falls back to `/tmp` (`/tmp/prepalert-sessions`) on Lambda.** On Lambda the filesystem is read-only except for `/tmp`, and `sessionsDir` (default `<project-dir>/sessions`) is always written as a local buffer. When a non-`/tmp` path is configured, a warning is logged and it falls back. To silence the warning, set `sessionsDir` explicitly under `/tmp`. Note that writes to `sessionsDir` happen even when `storage` (S3) is configured
-- Use the `compile:lambda` script (`bun build --compile --target=bun-linux-x64 --outfile bootstrap`) to build a Lambda custom runtime binary
+- Use the `compile:lambda` script (`bun build --compile --target=bun-linux-x64 --outfile bootstrap`) to build a Lambda custom runtime binary. The script also fetches the native `claude` CLI binary that the Agent SDK requires, placing it as `claude` next to `bootstrap`. Your deployment zip must **include both `bootstrap` and `claude` at the same directory level** (without `claude`, it fails with `Native CLI binary for linux-x64 not found`)
 - Set SQS `VisibilityTimeout` to be greater than or equal to `timeout`
 - In Lambda environments, async mode is automatically forced to sync mode (Lambda does not support fire-and-forget execution)
 - Use API Gateway v2 (HTTP API) — SQS dispatch sends events in v2 format

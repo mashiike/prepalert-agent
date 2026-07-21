@@ -180,7 +180,7 @@ serve:
 
 - Lambda の最大実行時間は 15 分。`timeout` はそれより短く設定すること
 - **`sessionsDir` は Lambda 環境では自動的に `/tmp` 配下（`/tmp/prepalert-sessions`）にフォールバックする。** Lambda のファイルシステムは `/tmp` 以外が読み取り専用で、`sessionsDir`（デフォルト `<project-dir>/sessions`）はローカルバッファとして常に書き込まれるため。`/tmp` 配下以外が設定されている場合は warn ログを出してフォールバックする。warn を消すには `sessionsDir` を明示的に `/tmp` 配下に設定すること。`storage`（S3）を設定していても `sessionsDir` への書き込みは発生する点に注意
-- `compile:lambda` スクリプト（`bun build --compile --target=bun-linux-x64 --outfile bootstrap`）で Lambda カスタムランタイム用バイナリをビルドできる
+- `compile:lambda` スクリプト（`bun build --compile --target=bun-linux-x64 --outfile bootstrap`）で Lambda カスタムランタイム用バイナリをビルドできる。同スクリプトは Agent SDK が要求する native `claude` CLI バイナリも `bootstrap` と同じディレクトリに `claude` として取得する。デプロイ用 zip には **`bootstrap` と `claude` の両方を同じ階層に含めること**（`claude` が無いと `Native CLI binary for linux-x64 not found` エラーで失敗する）
 - SQS の `VisibilityTimeout` を `timeout` 以上に設定すること
 - Lambda 環境では非同期モードが強制的に同期モードに切り替わる（Lambda は fire-and-forget を許容しないため）
 - API Gateway v2 (HTTP API) を使用すること（SQS dispatch は v2 イベント形式で送信する）

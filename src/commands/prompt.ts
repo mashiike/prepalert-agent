@@ -69,6 +69,7 @@ interface HeadlessOptions {
   abortController?: AbortController | undefined;
   sessionWriter?: SessionWriter | undefined;
   session?: SessionContext | undefined;
+  claudeExecutablePath?: string | undefined;
 }
 
 interface InteractiveOptions {
@@ -77,6 +78,7 @@ interface InteractiveOptions {
   canUseTool?: CanUseTool | undefined;
   sessionWriter?: SessionWriter | undefined;
   session?: SessionContext | undefined;
+  claudeExecutablePath?: string | undefined;
 }
 
 export type BuildOptions = HeadlessOptions | InteractiveOptions;
@@ -107,6 +109,7 @@ export function buildQueryOptions(project: Project, opts: BuildOptions): Options
     if (disallowedTools) result.disallowedTools = disallowedTools;
     if (project.config.model) result.model = project.config.model;
     if (project.config.costLimit) result.maxBudgetUsd = project.config.costLimit;
+    if (opts.claudeExecutablePath) result.pathToClaudeCodeExecutable = opts.claudeExecutablePath;
     return result;
   }
 

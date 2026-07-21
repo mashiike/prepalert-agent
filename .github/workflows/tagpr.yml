@@ -68,9 +68,11 @@ jobs:
       - name: Build binary
         run: |
           bun build --compile --minify --target=${{ matrix.target }} src/index.ts --outfile prepalert-agent
+      - name: Fetch native claude binary
+        run: bun run scripts/fetch-claude-binary.ts ${{ matrix.target }} ./claude
       - name: Create archive
         run: |
-          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent LICENSE RELINKING.md THIRD_PARTY_LICENSES.md
+          tar czf ${{ matrix.artifact }}.tar.gz prepalert-agent claude LICENSE RELINKING.md THIRD_PARTY_LICENSES.md
       - name: Upload to release
         run: |
           TAG="${{ inputs.tag || needs.tagpr.outputs.tag }}"
