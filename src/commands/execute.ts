@@ -202,6 +202,7 @@ export interface ExecuteOptions {
   logger: Logger;
   transcriptWriter: TranscriptWriter;
   baseUrl?: string | undefined;
+  claudeExecutablePath?: string | undefined;
 }
 
 export interface ExecutePromptResult {
@@ -224,7 +225,7 @@ export async function executePrompt(project: Project, prompt: string, opts: Exec
   const session: SessionContext | undefined = sessionWriter
     ? { sessionId: sessionWriter.sessionId, baseUrl: opts.baseUrl }
     : undefined;
-  const options = buildQueryOptions(project, { mode: "headless", abortController, sessionWriter, session });
+  const options = buildQueryOptions(project, { mode: "headless", abortController, sessionWriter, session, claudeExecutablePath: opts.claudeExecutablePath });
 
   const sessionTelemetry = isOTelEnabled() ? new SessionTelemetry(transcriptWriter instanceof LocalTranscriptWriter ? transcriptWriter.sessionId : crypto.randomUUID()) : null;
   sessionTelemetry?.startTurn();
@@ -456,7 +457,7 @@ export async function executeInteractive(project: Project, permissionMode: Permi
   const session: SessionContext | undefined = sessionWriter
     ? { sessionId: sessionWriter.sessionId }
     : undefined;
-  const interactiveOpts = { mode: "interactive" as const, permissionMode, sessionWriter, session, canUseTool: undefined as CanUseTool | undefined };
+  const interactiveOpts = { mode: "interactive" as const, permissionMode, sessionWriter, session, canUseTool: undefined as CanUseTool | undefined, claudeExecutablePath: opts?.claudeExecutablePath };
   if (permissionMode !== "dontAsk") {
     interactiveOpts.canUseTool = buildCanUseTool(rl);
   }

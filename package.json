@@ -18,8 +18,8 @@
     "lint": "eslint src/",
     "build": "tsc",
     "embed": "bun run scripts/embed-assets.ts",
-    "compile": "bun run embed && bun build --compile --minify src/index.ts --outfile prepalert-agent",
-    "compile:lambda": "bun run embed && bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile bootstrap",
+    "compile": "bun run embed && bun build --compile --minify src/index.ts --outfile prepalert-agent && bun run scripts/fetch-claude-binary.ts $(bun -e 'console.log(process.platform + \"-\" + process.arch)') ./claude",
+    "compile:lambda": "bun run embed && bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile bootstrap && bun run scripts/fetch-claude-binary.ts bun-linux-x64 ./claude",
     "start": "bun run src/index.ts",
     "dev": "bun src/index.ts"
   },

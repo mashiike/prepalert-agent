@@ -18,8 +18,10 @@ bun run compile
 ```
 
 The `compile` script embeds documentation and skill assets into the binary
-(via `scripts/embed-assets.ts`) before compiling, so the resulting
-single-file executable is fully self-contained.
+(via `scripts/embed-assets.ts`) before compiling, and also fetches the native
+`claude` CLI binary that the Agent SDK requires as a sibling `claude` file
+next to the compiled executable (via `scripts/fetch-claude-binary.ts`) —
+`prepalert-agent` and `claude` must stay in the same directory.
 
 To use a different Bun version (and thus a different JavaScriptCore):
 

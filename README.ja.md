@@ -52,10 +52,11 @@ Usage: prepalert-agent [options] [command]
 Alert response agent powered by Claude Agent SDK
 
 Options:
-  -v, --version        バージョン表示
-  --project-dir <dir>  プロジェクトディレクトリのパス (default: ".")
-  --log-level <level>  ログレベル (debug|info|warn|error, default: "info")
-  -h, --help           ヘルプ表示
+  -v, --version                    バージョン表示
+  --project-dir <dir>              プロジェクトディレクトリのパス (default: ".")
+  --log-level <level>              ログレベル (debug|info|warn|error, default: "info")
+  --claude-executable-path <path>  claude CLI 実行ファイルのパス (default: 実行ファイルと同じディレクトリにある "claude" があれば使用)
+  -h, --help                       ヘルプ表示
 
 Commands:
   run [options]        アラート対応を実行（対話 or ヘッドレス）

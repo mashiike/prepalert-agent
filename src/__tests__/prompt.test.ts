@@ -192,4 +192,19 @@ describe("buildQueryOptions (common)", () => {
     expect(options.agents?.["runbook/web-api/5xx"]).toBeDefined();
     expect(options.agents?.["Explore"]).toBeDefined();
   });
+
+  test("omits pathToClaudeCodeExecutable when not provided", () => {
+    const options = buildQueryOptions(makeProject(), { mode: "headless" });
+    expect(options.pathToClaudeCodeExecutable).toBeUndefined();
+  });
+
+  test("sets pathToClaudeCodeExecutable when provided (headless)", () => {
+    const options = buildQueryOptions(makeProject(), { mode: "headless", claudeExecutablePath: "/opt/prepalert-agent/claude" });
+    expect(options.pathToClaudeCodeExecutable).toBe("/opt/prepalert-agent/claude");
+  });
+
+  test("sets pathToClaudeCodeExecutable when provided (interactive)", () => {
+    const options = buildQueryOptions(makeProject(), { mode: "interactive", permissionMode: "default", claudeExecutablePath: "/opt/prepalert-agent/claude" });
+    expect(options.pathToClaudeCodeExecutable).toBe("/opt/prepalert-agent/claude");
+  });
 });
