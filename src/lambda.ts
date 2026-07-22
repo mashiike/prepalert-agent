@@ -4,12 +4,28 @@ import type {
   SQSEvent as AWSSQSEvent,
   SQSBatchResponse,
 } from "aws-lambda";
+import { cp, rm } from "node:fs/promises";
 import type { Logger } from "./logger.js";
 
 export type { APIGatewayProxyEventV2 } from "aws-lambda";
 
 export function isLambdaEnvironment(): boolean {
   return process.env["AWS_LAMBDA_FUNCTION_NAME"] !== undefined;
+}
+
+const LAMBDA_STAGED_PROJECT_DIR = "/tmp/prepalert-project";
+
+/**
+ * Copies the project directory into /tmp so it is writable.
+ * The Claude Agent SDK creates scratch files relative to `cwd` (set to the
+ * project directory), which fails with EROFS when the project directory is
+ * baked read-only into a Lambda container image.
+ */
+export async function stageProjectDirForLambda(projectDir: string): Promise<string> {
+  if (projectDir === "/tmp" || projectDir.startsWith("/tmp/")) return projectDir;
+  await rm(LAMBDA_STAGED_PROJECT_DIR, { recursive: true, force: true });
+  await cp(projectDir, LAMBDA_STAGED_PROJECT_DIR, { recursive: true });
+  return LAMBDA_STAGED_PROJECT_DIR;
 }
 
 export function isSQSEvent(event: unknown): event is AWSSQSEvent {

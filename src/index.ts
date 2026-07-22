@@ -13,6 +13,7 @@ import { FileLogger, type LogLevel } from "./logger.js";
 import { LocalTranscriptWriter } from "./transcript.js";
 import { initTelemetry, shutdownTelemetry, isOTelEnabled, OTelLogger } from "./telemetry.js";
 import { resolveClaudeExecutablePath } from "./cli-options.js";
+import { isLambdaEnvironment, stageProjectDirForLambda } from "./lambda.js";
 
 const VALID_PERMISSION_MODES: PermissionMode[] = ["default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto"];
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -22,6 +23,17 @@ function resolveLogLevel(cliValue: string | undefined): LogLevel {
   if (VALID_LOG_LEVELS.includes(raw as LogLevel)) return raw as LogLevel;
   console.error(`error: invalid log level '${raw}'. Valid levels: ${VALID_LOG_LEVELS.join(", ")}`);
   process.exit(1);
+}
+
+function resolveLogsDirForServe(configured: string): string {
+  if (isLambdaEnvironment() && configured !== "/tmp" && !configured.startsWith("/tmp/")) {
+    const fallback = "/tmp/prepalert-logs";
+    console.warn(
+      `logsDir "${configured}" is not under /tmp; on Lambda the filesystem is read-only except /tmp, so falling back to "${fallback}". Set logsDir under /tmp in prepalert.yaml to silence this warning.`,
+    );
+    return fallback;
+  }
+  return configured;
 }
 
 async function readStdin(): Promise<string> {
@@ -141,7 +153,10 @@ program
       process.exit(1);
     }
     const globals = cmd.optsWithGlobals();
-    const projectDir = globals.projectDir as string;
+    let projectDir = globals.projectDir as string;
+    if (isLambdaEnvironment()) {
+      projectDir = await stageProjectDirForLambda(projectDir);
+    }
     const logLevel = resolveLogLevel(globals.logLevel as string | undefined);
     const project = await loadProjectOrExit(projectDir);
     const configuredPort: unknown = project.config.serve?.port ?? 8080;
@@ -152,7 +167,7 @@ program
     }
     const port = rawPort;
     const claudeExecutablePath = resolveClaudeExecutablePath(globals.claudeExecutablePath as string | undefined);
-    const logsDir = join(project.dir, project.config.logsDir ?? "logs");
+    const logsDir = resolveLogsDirForServe(join(project.dir, project.config.logsDir ?? "logs"));
     const sessionsDir = join(project.dir, project.config.sessionsDir ?? "sessions");
     const fileLogger = new FileLogger(logsDir, logLevel, { stderrAll: true });
     const logger = isOTelEnabled() ? new OTelLogger(fileLogger) : fileLogger;
