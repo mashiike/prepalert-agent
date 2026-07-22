@@ -1,6 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   isLambdaEnvironment,
@@ -323,7 +322,7 @@ describe("stageProjectDirForLambda", () => {
   });
 
   test("copies the project directory into /tmp and returns the staged path", async () => {
-    const source = await mkdtemp(join(tmpdir(), "prepalert-lambda-source-"));
+    const source = await mkdtemp(join(process.cwd(), ".prepalert-lambda-source-"));
     try {
       await writeFile(join(source, "prepalert.yaml"), "name: test\n");
       await mkdir(join(source, "runbooks"), { recursive: true });
@@ -340,8 +339,8 @@ describe("stageProjectDirForLambda", () => {
   });
 
   test("overwrites a previously staged directory", async () => {
-    const first = await mkdtemp(join(tmpdir(), "prepalert-lambda-first-"));
-    const second = await mkdtemp(join(tmpdir(), "prepalert-lambda-second-"));
+    const first = await mkdtemp(join(process.cwd(), ".prepalert-lambda-first-"));
+    const second = await mkdtemp(join(process.cwd(), ".prepalert-lambda-second-"));
     try {
       await writeFile(join(first, "prepalert.yaml"), "name: first\n");
       await writeFile(join(first, "only-in-first.txt"), "stale\n");
