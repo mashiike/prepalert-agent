@@ -181,7 +181,6 @@ serve:
 - Lambda の最大実行時間は 15 分。`timeout` はそれより短く設定すること
 - **`sessionsDir` と `logsDir` は Lambda 環境では自動的に `/tmp` 配下（それぞれ `/tmp/prepalert-sessions`、`/tmp/prepalert-logs`）にフォールバックする。** Lambda のファイルシステムは `/tmp` 以外が読み取り専用のため。`/tmp` 配下以外が設定されている場合は warn ログを出してフォールバックする。warn を消すには両方を明示的に `/tmp` 配下に設定すること。`storage`（S3）を設定していても `sessionsDir` への書き込みは発生する点に注意
 - **プロジェクトディレクトリ自体も Lambda 環境では起動時に自動的に `/tmp/prepalert-project` へコピーされる。** Claude Agent SDK が `cwd`（プロジェクトディレクトリ）相対でスクラッチ用ディレクトリを作成するため、コンテナイメージに焼き込まれた読み取り専用のプロジェクトディレクトリのままでは動作しない
-- デプロイ用のアーティファクトは[コンテナイメージ](#コンテナイメージ)をそのまま利用する。**Lambda のコンテナイメージデプロイは Amazon ECR にホストされたイメージのみをサポートする**ため、`ghcr.io/mashiike/prepalert-agent` のイメージを ECR リポジトリへコピーしてから Lambda 関数の Image URI に指定すること。Lambda 関数の `ImageConfig.Command` を `["serve"]` に上書きする必要がある（イメージの `ENTRYPOINT` は `prepalert-agent` のみで、サブコマンドの指定はデプロイ時に行うため）
 - SQS の `VisibilityTimeout` を `timeout` 以上に設定すること
 - Lambda 環境では非同期モードが強制的に同期モードに切り替わる（Lambda は fire-and-forget を許容しないため）
 - API Gateway v2 (HTTP API) を使用すること（SQS dispatch は v2 イベント形式で送信する）

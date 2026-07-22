@@ -181,7 +181,6 @@ serve:
 - Lambda maximum execution time is 15 minutes. Set `timeout` shorter than this
 - **`sessionsDir` and `logsDir` automatically fall back to `/tmp` (`/tmp/prepalert-sessions` and `/tmp/prepalert-logs` respectively) on Lambda.** On Lambda the filesystem is read-only except for `/tmp`. When a non-`/tmp` path is configured, a warning is logged and it falls back. To silence the warning, set both explicitly under `/tmp`. Note that writes to `sessionsDir` happen even when `storage` (S3) is configured
 - **The project directory itself is also copied to `/tmp/prepalert-project` automatically on startup in a Lambda environment.** The Claude Agent SDK creates scratch files relative to `cwd` (the project directory), which fails when the project directory is baked read-only into a container image
-- Use the [container image](#container-image) as-is for your deployment artifact. **Lambda container image deployments only support images hosted in Amazon ECR**, so copy the `ghcr.io/mashiike/prepalert-agent` image into an ECR repository before referencing it as the Lambda function's Image URI. You must override the Lambda function's `ImageConfig.Command` to `["serve"]` (the image's `ENTRYPOINT` is just `prepalert-agent`; the subcommand is specified at deploy time)
 - Set SQS `VisibilityTimeout` to be greater than or equal to `timeout`
 - In Lambda environments, async mode is automatically forced to sync mode (Lambda does not support fire-and-forget execution)
 - Use API Gateway v2 (HTTP API) — SQS dispatch sends events in v2 format
