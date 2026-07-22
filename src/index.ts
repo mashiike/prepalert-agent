@@ -13,7 +13,7 @@ import { FileLogger, type LogLevel } from "./logger.js";
 import { LocalTranscriptWriter } from "./transcript.js";
 import { initTelemetry, shutdownTelemetry, isOTelEnabled, OTelLogger } from "./telemetry.js";
 import { resolveClaudeExecutablePath } from "./cli-options.js";
-import { isLambdaEnvironment, stageProjectDirForLambda } from "./lambda.js";
+import { isLambdaEnvironment, stageProjectDirForLambda, resolveLambdaSafeDir } from "./lambda.js";
 
 const VALID_PERMISSION_MODES: PermissionMode[] = ["default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto"];
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -23,17 +23,6 @@ function resolveLogLevel(cliValue: string | undefined): LogLevel {
   if (VALID_LOG_LEVELS.includes(raw as LogLevel)) return raw as LogLevel;
   console.error(`error: invalid log level '${raw}'. Valid levels: ${VALID_LOG_LEVELS.join(", ")}`);
   process.exit(1);
-}
-
-function resolveLogsDirForServe(configured: string): string {
-  if (isLambdaEnvironment() && configured !== "/tmp" && !configured.startsWith("/tmp/")) {
-    const fallback = "/tmp/prepalert-logs";
-    console.warn(
-      `logsDir "${configured}" is not under /tmp; on Lambda the filesystem is read-only except /tmp, so falling back to "${fallback}". Set logsDir under /tmp in prepalert.yaml to silence this warning.`,
-    );
-    return fallback;
-  }
-  return configured;
 }
 
 async function readStdin(): Promise<string> {
@@ -167,7 +156,7 @@ program
     }
     const port = rawPort;
     const claudeExecutablePath = resolveClaudeExecutablePath(globals.claudeExecutablePath as string | undefined);
-    const logsDir = resolveLogsDirForServe(join(project.dir, project.config.logsDir ?? "logs"));
+    const logsDir = resolveLambdaSafeDir(join(project.dir, project.config.logsDir ?? "logs"), "/tmp/prepalert-logs", "logsDir", console.warn);
     const sessionsDir = join(project.dir, project.config.sessionsDir ?? "sessions");
     const fileLogger = new FileLogger(logsDir, logLevel, { stderrAll: true });
     const logger = isOTelEnabled() ? new OTelLogger(fileLogger) : fileLogger;

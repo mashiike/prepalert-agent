@@ -8,6 +8,7 @@ import {
   apiGatewayV2EventToRequest,
   responseToAPIGatewayV2,
   stageProjectDirForLambda,
+  resolveLambdaSafeDir,
   type APIGatewayV2Event,
   type SQSEvent,
 } from "../lambda.js";
@@ -355,5 +356,42 @@ describe("stageProjectDirForLambda", () => {
       await rm(first, { recursive: true, force: true });
       await rm(second, { recursive: true, force: true });
     }
+  });
+
+});
+
+describe("resolveLambdaSafeDir", () => {
+  afterEach(() => {
+    delete process.env["AWS_LAMBDA_FUNCTION_NAME"];
+  });
+
+  test("returns configured unchanged outside Lambda", () => {
+    delete process.env["AWS_LAMBDA_FUNCTION_NAME"];
+    const warn = () => { throw new Error("should not warn"); };
+    expect(resolveLambdaSafeDir("/var/log/app", "/tmp/fallback", "logsDir", warn)).toBe("/var/log/app");
+  });
+
+  test("returns configured unchanged when already under /tmp on Lambda", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const warn = () => { throw new Error("should not warn"); };
+    expect(resolveLambdaSafeDir("/tmp/foo", "/tmp/fallback", "logsDir", warn)).toBe("/tmp/foo");
+  });
+
+  test("falls back and warns when configured is outside /tmp on Lambda", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const messages: string[] = [];
+    const result = resolveLambdaSafeDir("/var/log/app", "/tmp/fallback", "logsDir", (msg) => messages.push(msg));
+    expect(result).toBe("/tmp/fallback");
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("logsDir");
+    expect(messages[0]).toContain("/var/log/app");
+  });
+
+  test("falls back when configured escapes /tmp via .. segments despite the /tmp/ string prefix", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const messages: string[] = [];
+    const result = resolveLambdaSafeDir("/tmp/../etc", "/tmp/fallback", "logsDir", (msg) => messages.push(msg));
+    expect(result).toBe("/tmp/fallback");
+    expect(messages).toHaveLength(1);
   });
 });

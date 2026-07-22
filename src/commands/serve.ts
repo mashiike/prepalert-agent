@@ -15,7 +15,7 @@ import { handleApiRequest, type ApiContext } from "../api.js";
 import { createSpaHandler } from "../spa.js";
 import { resolveExportSecret, verifyExportToken } from "../export-token.js";
 import { handleLogin, handleCallback, handleLogout, verifySession, resolveSessionSecret, type OidcConfig } from "../auth-session.js";
-import { isLambdaEnvironment, startLambdaRuntime } from "../lambda.js";
+import { isLambdaEnvironment, startLambdaRuntime, resolveLambdaSafeDir } from "../lambda.js";
 import { sendToSqs } from "../sqs-dispatch.js";
 import { parseDuration } from "../config.js";
 
@@ -303,15 +303,7 @@ export interface ServeContext {
 }
 
 function resolveSessionsDir(configured: string, logger: Logger): string {
-  if (isLambdaEnvironment() && configured !== "/tmp" && !configured.startsWith("/tmp/")) {
-    const fallback = "/tmp/prepalert-sessions";
-    logger.warn(
-      `sessionsDir "${configured}" is not under /tmp; on Lambda the filesystem is read-only except /tmp, so falling back to "${fallback}". Set sessionsDir under /tmp in prepalert.yaml to silence this warning.`,
-      { configured, fallback },
-    );
-    return fallback;
-  }
-  return configured;
+  return resolveLambdaSafeDir(configured, "/tmp/prepalert-sessions", "sessionsDir", (msg) => logger.warn(msg));
 }
 
 function initializeServeContext(project: Project, opts: ServeCommandOptions): ServeContext {
