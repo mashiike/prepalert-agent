@@ -13,6 +13,7 @@ import { FileLogger, type LogLevel } from "./logger.js";
 import { LocalTranscriptWriter } from "./transcript.js";
 import { initTelemetry, shutdownTelemetry, isOTelEnabled, OTelLogger } from "./telemetry.js";
 import { resolveClaudeExecutablePath } from "./cli-options.js";
+import { isLambdaEnvironment, stageProjectDirForLambda, resolveLambdaSafeDir } from "./lambda.js";
 
 const VALID_PERMISSION_MODES: PermissionMode[] = ["default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto"];
 const VALID_LOG_LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
@@ -141,7 +142,10 @@ program
       process.exit(1);
     }
     const globals = cmd.optsWithGlobals();
-    const projectDir = globals.projectDir as string;
+    let projectDir = globals.projectDir as string;
+    if (isLambdaEnvironment()) {
+      projectDir = await stageProjectDirForLambda(projectDir);
+    }
     const logLevel = resolveLogLevel(globals.logLevel as string | undefined);
     const project = await loadProjectOrExit(projectDir);
     const configuredPort: unknown = project.config.serve?.port ?? 8080;
@@ -152,7 +156,7 @@ program
     }
     const port = rawPort;
     const claudeExecutablePath = resolveClaudeExecutablePath(globals.claudeExecutablePath as string | undefined);
-    const logsDir = join(project.dir, project.config.logsDir ?? "logs");
+    const logsDir = resolveLambdaSafeDir(join(project.dir, project.config.logsDir ?? "logs"), "/tmp/prepalert-logs", "logsDir", console.warn);
     const sessionsDir = join(project.dir, project.config.sessionsDir ?? "sessions");
     const fileLogger = new FileLogger(logsDir, logLevel, { stderrAll: true });
     const logger = isOTelEnabled() ? new OTelLogger(fileLogger) : fileLogger;

@@ -1,10 +1,14 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, afterEach } from "bun:test";
+import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
 import {
   isLambdaEnvironment,
   isSQSEvent,
   isAPIGatewayV2Event,
   apiGatewayV2EventToRequest,
   responseToAPIGatewayV2,
+  stageProjectDirForLambda,
+  resolveLambdaSafeDir,
   type APIGatewayV2Event,
   type SQSEvent,
 } from "../lambda.js";
@@ -298,5 +302,96 @@ describe("SQS event with API Gateway v2 payload integration", () => {
     expect(request.method).toBe("POST");
     expect(request.url).toBe("https://example.com/webhook/test");
     expect(request.headers.get("prepalert-dispatch-token")).toBe("tok");
+  });
+});
+
+describe("stageProjectDirForLambda", () => {
+  const STAGED_DIR = "/tmp/prepalert-project";
+
+  afterEach(async () => {
+    await rm(STAGED_DIR, { recursive: true, force: true });
+  });
+
+  test("returns the input unchanged when already under /tmp", async () => {
+    const dir = await mkdtemp("/tmp/prepalert-lambda-test-");
+    try {
+      expect(await stageProjectDirForLambda(dir)).toBe(dir);
+      expect(await stageProjectDirForLambda("/tmp")).toBe("/tmp");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("copies the project directory into /tmp and returns the staged path", async () => {
+    const source = await mkdtemp(join(process.cwd(), ".prepalert-lambda-source-"));
+    try {
+      await writeFile(join(source, "prepalert.yaml"), "name: test\n");
+      await mkdir(join(source, "runbooks"), { recursive: true });
+      await writeFile(join(source, "runbooks", "example.md"), "# Runbook\n");
+
+      const staged = await stageProjectDirForLambda(source);
+
+      expect(staged).toBe(STAGED_DIR);
+      expect(await readFile(join(staged, "prepalert.yaml"), "utf-8")).toBe("name: test\n");
+      expect(await readFile(join(staged, "runbooks", "example.md"), "utf-8")).toBe("# Runbook\n");
+    } finally {
+      await rm(source, { recursive: true, force: true });
+    }
+  });
+
+  test("overwrites a previously staged directory", async () => {
+    const first = await mkdtemp(join(process.cwd(), ".prepalert-lambda-first-"));
+    const second = await mkdtemp(join(process.cwd(), ".prepalert-lambda-second-"));
+    try {
+      await writeFile(join(first, "prepalert.yaml"), "name: first\n");
+      await writeFile(join(first, "only-in-first.txt"), "stale\n");
+      await writeFile(join(second, "prepalert.yaml"), "name: second\n");
+
+      await stageProjectDirForLambda(first);
+      const staged = await stageProjectDirForLambda(second);
+
+      expect(await readFile(join(staged, "prepalert.yaml"), "utf-8")).toBe("name: second\n");
+      await expect(stat(join(staged, "only-in-first.txt"))).rejects.toThrow();
+    } finally {
+      await rm(first, { recursive: true, force: true });
+      await rm(second, { recursive: true, force: true });
+    }
+  });
+
+});
+
+describe("resolveLambdaSafeDir", () => {
+  afterEach(() => {
+    delete process.env["AWS_LAMBDA_FUNCTION_NAME"];
+  });
+
+  test("returns configured unchanged outside Lambda", () => {
+    delete process.env["AWS_LAMBDA_FUNCTION_NAME"];
+    const warn = () => { throw new Error("should not warn"); };
+    expect(resolveLambdaSafeDir("/var/log/app", "/tmp/fallback", "logsDir", warn)).toBe("/var/log/app");
+  });
+
+  test("returns configured unchanged when already under /tmp on Lambda", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const warn = () => { throw new Error("should not warn"); };
+    expect(resolveLambdaSafeDir("/tmp/foo", "/tmp/fallback", "logsDir", warn)).toBe("/tmp/foo");
+  });
+
+  test("falls back and warns when configured is outside /tmp on Lambda", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const messages: string[] = [];
+    const result = resolveLambdaSafeDir("/var/log/app", "/tmp/fallback", "logsDir", (msg) => messages.push(msg));
+    expect(result).toBe("/tmp/fallback");
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("logsDir");
+    expect(messages[0]).toContain("/var/log/app");
+  });
+
+  test("falls back when configured escapes /tmp via .. segments despite the /tmp/ string prefix", () => {
+    process.env["AWS_LAMBDA_FUNCTION_NAME"] = "test-fn";
+    const messages: string[] = [];
+    const result = resolveLambdaSafeDir("/tmp/../etc", "/tmp/fallback", "logsDir", (msg) => messages.push(msg));
+    expect(result).toBe("/tmp/fallback");
+    expect(messages).toHaveLength(1);
   });
 });

@@ -4,12 +4,46 @@ import type {
   SQSEvent as AWSSQSEvent,
   SQSBatchResponse,
 } from "aws-lambda";
+import { cp, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 import type { Logger } from "./logger.js";
 
 export type { APIGatewayProxyEventV2 } from "aws-lambda";
 
 export function isLambdaEnvironment(): boolean {
   return process.env["AWS_LAMBDA_FUNCTION_NAME"] !== undefined;
+}
+
+function isUnderTmp(path: string): boolean {
+  const resolved = resolve(path);
+  return resolved === "/tmp" || resolved.startsWith("/tmp/");
+}
+
+const LAMBDA_STAGED_PROJECT_DIR = "/tmp/prepalert-project";
+
+/**
+ * Copies the project directory into /tmp so it is writable.
+ * The Claude Agent SDK creates scratch files relative to `cwd` (set to the
+ * project directory), which fails with EROFS when the project directory is
+ * baked read-only into a Lambda container image.
+ */
+export async function stageProjectDirForLambda(projectDir: string): Promise<string> {
+  if (isUnderTmp(projectDir)) return projectDir;
+  await rm(LAMBDA_STAGED_PROJECT_DIR, { recursive: true, force: true });
+  await cp(projectDir, LAMBDA_STAGED_PROJECT_DIR, { recursive: true });
+  return LAMBDA_STAGED_PROJECT_DIR;
+}
+
+/**
+ * Falls back to a /tmp path when `configured` resolves outside /tmp on Lambda,
+ * where the filesystem is read-only except /tmp. No-op outside Lambda.
+ */
+export function resolveLambdaSafeDir(configured: string, fallback: string, label: string, warn: (msg: string) => void): string {
+  if (!isLambdaEnvironment() || isUnderTmp(configured)) return configured;
+  warn(
+    `${label} "${configured}" is not under /tmp; on Lambda the filesystem is read-only except /tmp, so falling back to "${fallback}". Set ${label} under /tmp in prepalert.yaml to silence this warning.`,
+  );
+  return fallback;
 }
 
 export function isSQSEvent(event: unknown): event is AWSSQSEvent {
