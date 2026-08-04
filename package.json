@@ -1,6 +1,6 @@
 {
   "name": "prepalert-agent",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "CLI agent tool using Claude Agent SDK",
   "type": "module",
   "bin": {
